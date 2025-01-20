@@ -155,7 +155,7 @@ for j in -7:1:-7
         μc =  1im*ω*μ ./ (1im*ω .+ μ ./ η)
         # μc[2] = μ[2]
 
-        Ic = get_Ic(r[end,1], ρ[1], g[end,1], μ[1], "liquid")
+        # Ic = get_Ic(r[end,1], ρ[1], g[end,1], μ[1], "liquid")
 
         # # Bprod = get_B_product(r, ρ, g, μ, κ, η, ω)[:,:,end,end]
         # Bprod1 = get_B_product(r, ρ, g, μ, κ, ω, ρₗ, κₗ, ηₗ, ϕ)[:, :, :, :]
@@ -215,7 +215,7 @@ for j in -7:1:-7
 
         # y = s3*C2
 
-        ytest = @time calculate_y(r, ρ, g, μc, κ, ω, ρₗ, κₗ, ηₗ, ϕ, k)
+        ytest = calculate_y(r, ρ, g, μc, κ, ω, ρₗ, κₗ, ηₗ, ϕ, k)
 
         # k2 = y[5] - 1
 
@@ -269,6 +269,19 @@ ax2.set_xlim([ηs[1], ηs[end]])
 fig.subplots_adjust(wspace=.3)
 
 fig.savefig("io_porous.png", dpi=600, bbox_inches="tight")
+
+
+function profile_test(n)
+    for i = 1:n
+        μc =  1im*ω*μ ./ (1im*ω .+ μ ./ η)
+        calculate_y(r, ρ, g, μc, κ, ω, ρₗ, κₗ, ηₗ, ϕ, k)
+    end
+end
+
+# using ProfileView
+# # println("Profiling")
+# @profview profile_test(1)
+# println("Fin")
 
 # show()
 
