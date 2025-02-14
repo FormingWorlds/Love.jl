@@ -220,7 +220,7 @@ module TidalLoveNumbers
     end
 
     # Get the total heating rate across the entire body
-    function get_bulk_heating(y, ω, R, ecc)
+    function get_total_heating(y, ω, R, ecc)
         k2 = y[5, end,end] - 1.0    # Get k2 Love number at surface
         total_power = -21/2 * imag(k2) * (ω*R)^5/G * ecc^2
 

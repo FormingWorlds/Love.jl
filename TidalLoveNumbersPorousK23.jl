@@ -1126,5 +1126,135 @@ module TidalLoveNumbers
     
         return rs
     end
+
+
+    # Get the total heating rate across the entire body
+    function get_total_heating(y, ω, R, ecc)
+        k2 = y[5, end,end] - 1.0    # Get k2 Love number at surface
+        total_power = -21/2 * imag(k2) * (ω*R)^5/G * ecc^2
+
+        return total_power
+    end
     
+    # Get a radial profile of the volumetric heating rate
+    function get_heating_profile(y, r, ρ, g, μ, κ, ω, ecc; res=20.0)
+        dres = deg2rad(res)
+        λ = κ .- 2μ/3
+        R = r[end,end]
+
+        lons = deg2rad.(collect(0:res:360-0.001))'
+        clats = deg2rad.(collect(0:res:180))
+
+        clats[1] += 1e-6
+        clats[end] -= 1e-6
+        cosTheta = cos.(clats)
+
+        ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
+        σ = zero(ϵ)
+
+        ϵs = zero(ϵ)
+        σs = zero(ϵ)
+
+        # Eccentricity tide forcing coefficients
+        U22E =  7/8 * ω^2*R^2*ecc 
+        U22W = -1/8 * ω^2*R^2*ecc
+        U20  = -3/2 * ω^2*R^2*ecc
+
+        # Better way to do this? (Analytical expression?)
+        n = 2
+        for m in [-2, 2, 0]
+            Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+            S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
+
+            if iszero(abs(m))
+                dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
+                dYdϕ = Y * 1im * m
+
+                Z = 0.0 * Y
+                X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
+
+            elseif  abs(m) == 2
+                dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
+                dYdϕ = Y * 1im * m
+                
+                Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
+                X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
+            end
+
+            for i in 2:size(r)[2] # Loop of layers
+                ρr = ρ[i]
+                κr = κ[i]
+                μr = μ[i]
+                λr = λ[i]
+
+                for j in 1:size(r)[1]-1 # Loop over sublayers 
+                    (y1, y2, y3, y4, y5, y6) = conj.(y[:,j,i])
+                    
+                    rr = r[j,i]
+                    gr = g[j,i]
+
+                    A = get_A(rr, ρr, gr, μr, κr)
+                    dy1dr = dot(A[1,:], y[:,j,i])
+                    dy2dr = dot(A[2,:], y[:,j,i])
+
+                    # Compute strain tensor
+                    ϵ[:,:,1,j,i] = dy1dr * Y
+                    ϵ[:,:,2,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
+                    ϵ[:,:,3,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
+                    ϵ[:,:,4,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
+                    ϵ[:,:,5,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
+                    ϵ[:,:,6,j,i] = 0.5 * y2/rr * Z
+                    ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
+
+                    # Compute stress tensor
+                    σ[:,:,1,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,1,j,i] 
+                    σ[:,:,2,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,2,j,i] 
+                    σ[:,:,3,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,3,j,i] 
+                    σ[:,:,4,j,i] .= 2μr * ϵ[:,:,4,j,i]
+                    σ[:,:,5,j,i] .= 2μr * ϵ[:,:,5,j,i]
+                    σ[:,:,6,j,i] .= 2μr * ϵ[:,:,6,j,i]
+                end
+            end
+
+            if m==-2
+                ϵs .+= U22W*ϵ
+                σs .+= U22W*σ
+            elseif m==2
+                ϵs .+= U22E*ϵ
+                σs .+= U22E*σ
+            else
+                ϵs .+= U20*ϵ
+                σs .+= U20*σ
+            end
+        end
+
+        Eₛ_vol = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+        Eₛ_vol_layer_sph_avg = zeros(  (size(r)[2]) )
+        Eₛ_total = 0.0
+
+        for j in 2:size(r)[2]   # loop from CMB to surface
+            layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
+
+            for i in 1:size(r)[1]-1
+
+                dr = (r[i+1, j] - r[i, j])
+                dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
+
+                # Dissipated energy per unit volume
+                Eₛ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
+                Eₛ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
+                Eₛ_vol[:,:,i, j] .*= -0.25ω
+
+                # # Integrate across r to find dissipated energy per unit area
+                # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
+
+                Eₛ_vol_layer_sph_avg[j] += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
+                # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
+            end
+
+            Eₛ_vol_layer_sph_avg[j] /= layer_volume
+        end
+
+        return Eₛ_vol_layer_sph_avg
+    end
 end
