@@ -30,6 +30,7 @@ module TidalLoveNumbers
     export get_g, get_A!, get_A, get_B_product, get_Ic, get_B, get_B!
     export expand_layers, set_G, calculate_y
     export get_displacement, get_darcy_velocity, get_solution
+    export get_total_heating, get_heating_profile
 
     # prec = Float64 #BigFloat
     # precc = ComplexF64 #Complex{BigFloat}
@@ -1136,7 +1137,8 @@ module TidalLoveNumbers
         return total_power
     end
     
-    # Get a radial profile of the volumetric heating rate
+    # Get a radial profile of the volumetric heating rate for 
+    # solid-body tides
     function get_heating_profile(y, r, ρ, g, μ, κ, ω, ecc; res=20.0)
         dres = deg2rad(res)
         λ = κ .- 2μ/3
@@ -1155,7 +1157,7 @@ module TidalLoveNumbers
         ϵs = zero(ϵ)
         σs = zero(ϵ)
 
-        # Eccentricity tide forcing coefficients
+        # Eccentricity tide forcing coefficients (These should be called from a function)
         U22E =  7/8 * ω^2*R^2*ecc 
         U22W = -1/8 * ω^2*R^2*ecc
         U20  = -3/2 * ω^2*R^2*ecc
@@ -1230,6 +1232,7 @@ module TidalLoveNumbers
 
         Eₛ_vol = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
         Eₛ_vol_layer_sph_avg = zeros(  (size(r)[2]) )
+        Eₛ_vol_layer_sph_avg_secondary = zeros(  size(r) )
         Eₛ_total = 0.0
 
         for j in 2:size(r)[2]   # loop from CMB to surface
@@ -1247,14 +1250,14 @@ module TidalLoveNumbers
 
                 # # Integrate across r to find dissipated energy per unit area
                 # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
-
-                Eₛ_vol_layer_sph_avg[j] += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
+                Eₛ_vol_layer_sph_avg_secondary[i,j] = sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr /dvol
+                Eₛ_vol_layer_sph_avg[j] += Eₛ_vol_layer_sph_avg_secondary[i,j]*dvol
                 # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
             end
 
             Eₛ_vol_layer_sph_avg[j] /= layer_volume
         end
 
-        return Eₛ_vol_layer_sph_avg
+        return Eₛ_vol_layer_sph_avg, Eₛ_vol_layer_sph_avg_secondary
     end
 end
