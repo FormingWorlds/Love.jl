@@ -83,6 +83,10 @@ module TidalLoveNumbers
         TidalLoveNumbers.G = new_G
     end
 
+    function set_nr(new_nr)
+        TidalLoveNumbers.nr = new_nr
+    end
+
     function get_g(r, ρ)
         # g = zeros(Double64, size(r))
         # M = zeros(Double64, size(r))
@@ -1107,9 +1111,12 @@ module TidalLoveNumbers
         return Ic
     end
 
-    function expand_layers(r)#, ρ, μ, K, η)
-        # rs = zeros(Float64, (length(r)-1)*nr - length(r) + 2)
-        # rs = zeros(Double64, (nr+1, length(r)-1))
+    # inputs:
+    #   r: Radii of main layers (core, mantle, crust, etc)
+    #   nr: number of sublayers to discretize the main layers with (TODO: make nr an array)
+    function expand_layers(r; nr::Int=80)
+        set_nr(nr) # Update nr globally 
+
         rs = zeros(prec, (nr+1, length(r)-1))
         
         for i in 1:length(r)-1
@@ -1119,6 +1126,5 @@ module TidalLoveNumbers
     
         return rs
     end
-
     
 end
