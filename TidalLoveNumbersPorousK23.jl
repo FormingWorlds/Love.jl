@@ -1190,14 +1190,14 @@ module TidalLoveNumbers
                 λr = λ[i]
 
                 for j in 1:size(r)[1]-1 # Loop over sublayers 
-                    (y1, y2, y3, y4, y5, y6) = conj.(y[:,j,i])
+                    (y1, y2, y3, y4, y5, y6) = conj.(y[1:6,j,i])
                     
                     rr = r[j,i]
                     gr = g[j,i]
 
                     A = get_A(rr, ρr, gr, μr, κr)
-                    dy1dr = dot(A[1,:], y[:,j,i])
-                    dy2dr = dot(A[2,:], y[:,j,i])
+                    dy1dr = dot(A[1,:], y[1:6,j,i])
+                    dy2dr = dot(A[2,:], y[1:6,j,i])
 
                     # Compute strain tensor
                     ϵ[:,:,1,j,i] = dy1dr * Y
@@ -1249,21 +1249,19 @@ module TidalLoveNumbers
                 Eₛ_vol[:,:,i, j] .*= -0.25ω
 
                 # # Integrate across r to find dissipated energy per unit area
-                # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
-                Eₛ_vol_layer_sph_avg_secondary[i,j] = sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr /dvol
+                Eₛ_vol_layer_sph_avg_secondary[i,j] = sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
                 Eₛ_vol_layer_sph_avg[j] += Eₛ_vol_layer_sph_avg_secondary[i,j]*dvol
-                # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
             end
 
             Eₛ_vol_layer_sph_avg[j] /= layer_volume
         end
 
-        return Eₛ_vol_layer_sph_avg, Eₛ_vol_layer_sph_avg_secondary
+        return Eₛ_vol_layer_sph_avg_secondary
     end
-end
+
 
 # Get a radial profile of the volumetric heating rate
-function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ecc; res=20.0)
+function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k, ecc; res=20.0)
     dres = deg2rad(res)
     λ = Ks .- 2μ/3
     R = r[end,end]
@@ -1277,6 +1275,9 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, 
 
     ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
     σ = zero(ϵ)
+    q_flux = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
+
+    p = zeros(ComplexF64, length(clats), length(lons), size(r)[1]-1, size(r)[2])
 
     ϵs = zero(ϵ)
     σs = zero(ϵ)
@@ -1309,17 +1310,24 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, 
 
         for i in 2:size(r)[2] # Loop of layers
             ρr = ρ[i]
-            κr = κ[i]
+            Ksr = Ks[i]
             μr = μ[i]
             λr = λ[i]
+            ρlr = ρl[i]
+            Klr = Kl[i]
+            Kdr = Kd[i]
+            αr = α[i]
+            ηlr = ηl[i]
+            ϕr = ϕ[i]
+            kr = k[i]
 
             for j in 1:size(r)[1]-1 # Loop over sublayers 
-                (y1, y2, y3, y4, y5, y6) = conj.(y[:,j,i])
+                (y1, y2, y3, y4, y5, y6, y7, y8) = conj.(y[:,j,i])
                 
                 rr = r[j,i]
                 gr = g[j,i]
 
-                A = get_A(rr, ρr, gr, μr, κr)
+                A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
                 dy1dr = dot(A[1,:], y[:,j,i])
                 dy2dr = dot(A[2,:], y[:,j,i])
 
@@ -1339,6 +1347,19 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, 
                 σ[:,:,4,j,i] .= 2μr * ϵ[:,:,4,j,i]
                 σ[:,:,5,j,i] .= 2μr * ϵ[:,:,5,j,i]
                 σ[:,:,6,j,i] .= 2μr * ϵ[:,:,6,j,i]
+
+                if ϕ[i] > 0
+                    y9 = 1im * kr / (ω*ϕr*ηlr*rr) * (ρlr*gr*y1 - ρlr * y5 + ρlr*gr*y8 + y7)
+
+                    q_flux[:,:,1,j,i] .= y8 * Y
+                    q_flux[:,:,2,j,i] .= y9 * dYdθ
+                    q_flux[:,:,3,j,i] .= y9 * dYdϕ .* 1.0 ./ sin.(clats)
+
+                    # q_flux[:,:,:,j,i] .= get_darcy_displacement(y1, y5, y7, y8, rr, ω, ϕr, ηlr, kr, gr, ρlr, Y, S)
+                end
+
+                p[:,:,j,i] .= y7 * Y    # pore pressure
+
             end
         end
 
@@ -1354,9 +1375,25 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, 
         end
     end
 
-    Eₛ_vol = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
-    Eₛ_vol_layer_sph_avg = zeros(  (size(r)[2]) )
-    Eₛ_total = 0.0
+    # Shear heating in the solid
+    Eμ = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    Eμ_layer_sph_avg = zeros(  (size(r)[2]) )
+    Eμ_layer_sph_avg_rr = zeros(  size(r) )
+
+    # Darcy dissipation in the liquid
+    El = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    El_layer_sph_avg = zeros(  (size(r)[2]) )
+    El_layer_sph_avg_rr = zeros(  size(r) )
+
+    # Bulk dissipation in the solid
+    Eκ = zero(Eμ)
+    Eκ_layer_sph_avg = zero( Eμ_layer_sph_avg )
+    Eκ_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
+
+    # Bulk dissipation in the liquid
+    ES = zero(Eμ)
+    ES_layer_sph_avg = zero( Eμ_layer_sph_avg )
+    ES_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
 
     for j in 2:size(r)[2]   # loop from CMB to surface
         layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
@@ -1367,20 +1404,49 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρₗ, Kl, Kd, α, ηₗ, 
             dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
             # Dissipated energy per unit volume
-            Eₛ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
-            Eₛ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
-            Eₛ_vol[:,:,i, j] .*= -0.25ω
+            # Eμ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
+            # Eμ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
+            # Eμ_vol[:,:,i, j] .*= -0.25ω
+
+            Eμ[:,:,i, j] = sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+            Eμ[:,:,i, j] .*= ω * imag(μ[j])
+
+            Eκ[:,:,i, j] = ω/2 *imag(Kd[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
 
             # # Integrate across r to find dissipated energy per unit area
-            # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
+            # Eμ_area[:,:] .+= Eμ[:,:, i, j] * dr
 
-            Eₛ_vol_layer_sph_avg[j] += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
-            # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
+            # Eμ_layer_sph_avg[j] += sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
+            
+            Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+            Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
+
+            Eκ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eκ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+            Eκ_layer_sph_avg[j] += Eκ_layer_sph_avg_rr[i,j]*dvol
+
+
+            # Eμ_total += sum(sin.(clats) .* (Eμ[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
+       
+            if ϕ[j] > 0
+                S = (ϕ[j]/Kl[j] + (α[j] - ϕ[j])/Ks[j])
+
+                # Eμ[:,:,i, j] += ( p[:,:,i,j] .* conj.(ζ[:,:,i,j]) .- conj.(p[:,:,i,j]) .* ζ[:,:,i,j] ) * 1im 
+                El[:,:,i, j] = 0.5 * ηl[j]/k[j] * (abs.(q_flux[:,:,1,i,j]).^2 + abs.(q_flux[:,:,2,i,j]).^2 + abs.(q_flux[:,:,3,i,j]).^2)
+                El_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (El[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                El_layer_sph_avg[j] += El_layer_sph_avg_rr[i,j]*dvol
+
+                ES[:,:,i, j] = 0.5 * ω * imag(1.0/S) * abs.(S .* p[:,:,i,j]).^2
+                ES_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (ES[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                ES_layer_sph_avg[j] += ES_layer_sph_avg_rr[i,j]*dvol
+
+            end
+
         end
 
-        Eₛ_vol_layer_sph_avg[j] /= layer_volume
+        Eμ_layer_sph_avg[j] /= layer_volume
     end
 
-    return Eₛ_vol_layer_sph_avg
+    return Eμ_layer_sph_avg_rr, Eκ_layer_sph_avg_rr, El_layer_sph_avg_rr, ES_layer_sph_avg_rr
 end
+
 end
