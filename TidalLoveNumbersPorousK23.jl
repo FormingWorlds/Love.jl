@@ -1242,10 +1242,7 @@ module TidalLoveNumbers
                 Eκ[:,:,i, j] = ω/2 *imag(κ[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
     
                 # # Integrate across r to find dissipated energy per unit area
-                # Eμ_area[:,:] .+= Eμ[:,:, i, j] * dr
-    
-                # Eμ_layer_sph_avg[j] += sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
-                
+        
                 Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
                 Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
     
@@ -1400,11 +1397,6 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
     Eκ_layer_sph_avg = zero( Eμ_layer_sph_avg )
     Eκ_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
 
-    # Bulk dissipation in the liquid
-    ES = zero(Eμ)
-    ES_layer_sph_avg = zero( Eμ_layer_sph_avg )
-    ES_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
-
     for j in 2:size(r)[2]   # loop from CMB to surface
         layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
 
@@ -1412,11 +1404,6 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
 
             dr = (r[i+1, j] - r[i, j])
             dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
-
-            # Dissipated energy per unit volume
-            # Eμ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
-            # Eμ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
-            # Eμ_vol[:,:,i, j] .*= -0.25ω
 
             Eμ[:,:,i, j] = sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
             Eμ[:,:,i, j] .*= ω * imag(μ[j])
@@ -1426,11 +1413,8 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
                 Eκ[:,:,i, j] .+= ω/2 *imag(Kd[j]) * (abs.(ps[:,:,i,j]) ./ Ks[j]).^2
             end
 
-            # # Integrate across r to find dissipated energy per unit area
-            # Eμ_area[:,:] .+= Eμ[:,:, i, j] * dr
-
-            # Eμ_layer_sph_avg[j] += sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
-            
+            # Integrate across r to find dissipated energy per unit area
+        
             Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
             Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
 
