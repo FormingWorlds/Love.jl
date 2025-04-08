@@ -106,13 +106,13 @@ module TidalLoveNumbers
 
     end
 
-    function get_A(r, ρ, g, μ, K)
+    function get_A(r, ρ, g, μ, K; ω=0.0)
         A = zeros(precc, 6, 6) 
-        get_A!(A, r, ρ, g, μ, K)
+        get_A!(A, r, ρ, g, μ, K, ω=ω)
         return A
     end
 
-    function get_A!(A::Matrix, r, ρ, g, μ, K, λ=nothing)
+    function get_A!(A::Matrix, r, ρ, g, μ, K, λ=nothing; ω=0.0)
         if isnothing(λ)
             λ = K - 2μ/3
         end
@@ -123,7 +123,7 @@ module TidalLoveNumbers
 
         A[1,1] = -2λ * rβ_inv
         A[2,1] = -r_inv
-        A[3,1] = 4r_inv * (3K*μ*rβ_inv - ρ*g)
+        A[3,1] = 4r_inv * (3K*μ*rβ_inv - ρ*g)       - ω^2 * ρ# 
         A[4,1] = -r_inv * (6K*μ*rβ_inv - ρ*g )
         A[5,1] = 4π * G * ρ
         A[6,1] = 4π*(n+1)*G*ρ*r_inv
@@ -131,7 +131,7 @@ module TidalLoveNumbers
         A[1,2] = n*(n+1) * λ * rβ_inv
         A[2,2] = r_inv
         A[3,2] = -n*(n+1)*r_inv * (6K*μ*rβ_inv - ρ*g ) 
-        A[4,2] = 2μ*r_inv^2 * (2*n*(n+1)*(λ + μ)*β_inv - 1.0 )
+        A[4,2] = 2μ*r_inv^2 * (2*n*(n+1)*(λ + μ)*β_inv - 1.0 )    - ω^2 * ρ
         A[6,2] = -4π*n*(n+1)*G*ρ*r_inv
 
         A[1,3] = β_inv
@@ -305,13 +305,13 @@ module TidalLoveNumbers
         # return B
     end
 
-    function get_B(r1, r2, g1, g2, ρ, μ, K)
+    function get_B(r1, r2, g1, g2, ρ, μ, K; ω=0.0)
         B = zeros(precc, 6, 6)
-        get_B!(B, r1, r2, g1, g2, ρ, μ, K)
+        get_B!(B, r1, r2, g1, g2, ρ, μ, K, ω=ω)
         return B
     end
 
-    function get_B!(B, r1, r2, g1, g2, ρ, μ, K)
+    function get_B!(B, r1, r2, g1, g2, ρ, μ, K; ω=0.0)
         dr = r2 - r1
         rhalf = r1 + 0.5dr
         
@@ -330,19 +330,19 @@ module TidalLoveNumbers
         # Atop[:] .= zero(Atop[1])
         # Amid[:] .= zero(Amid[1])
 
-        get_A!(Abot, r1, ρ, g1, μ, K)
-        get_A!(Amid, rhalf, ρ, ghalf, μ, K)
-        get_A!(Atop, r2, ρ, g2, μ, K)
+        get_A!(Abot, r1, ρ, g1, μ, K, ω=ω)
+        get_A!(Amid, rhalf, ρ, ghalf, μ, K, ω=ω)
+        get_A!(Atop, r2, ρ, g2, μ, K, ω=ω)
         
-        # k16 .= dr * Abot 
-        # k26 .= dr * Amid * (I + 0.5k16)
-        # k36 .= dr * Amid * (I + 0.5k26)
-        # k46 .= dr * Atop * (I + k36) 
+        k16 .= dr * Abot 
+        k26 .= dr * Amid * (I + 0.5k16)
+        k36 .= dr * Amid * (I + 0.5k26)
+        k46 .= dr * Atop * (I + k36) 
 
-        k6[1] .= dr * Abot 
-        k6[2] .= dr * Amid * (I + 0.5k6[1])
-        k6[3] .= dr * Amid * (I + 0.5k6[2])
-        k6[4] .= dr * Atop * (I + k6[3]) 
+        # k6[1] .= dr * Abot 
+        # k6[2] .= dr * Amid * (I + 0.5k6[1])
+        # k6[3] .= dr * Amid * (I + 0.5k6[2])
+        # k6[4] .= dr * Atop * (I + k6[3]) 
 
         # Abot[:] .= zero(Abot[1])
         # Atop[:] .= zero(Atop[1])
@@ -362,7 +362,8 @@ module TidalLoveNumbers
 
         # println("here")
 
-        B[1:6,1:6] .= (I + 1.0/6.0 .* (k6[1] .+ 2*(k6[2] .+ k6[3]) .+ k6[4]))
+        # B[1:6,1:6] .= (I + 1.0/6.0 .* (k6[1] .+ 2*(k6[2] .+ k6[3]) .+ k6[4]))
+        B[1:6,1:6] .= (I + 1.0/6.0 .* (k16 .+ 2*(k26 .+ k36) .+ k46))
 
         # return B
     end
@@ -534,7 +535,7 @@ module TidalLoveNumbers
     end
 
     # first method: solid layer -- for a specific layer?
-    function get_B_product2!(Bprod2, r, ρ, g, μ, K)
+    function get_B_product2!(Bprod2, r, ρ, g, μ, K; ω=0.0)
         # Check dimensions of Bprod2
 
         Bstart = zeros(precc, 6, 6)
@@ -552,7 +553,7 @@ module TidalLoveNumbers
             g1 = g[j]
             g2 = g[j+1]
 
-            get_B!(B, r1, r2, g1, g2, ρ, μ, K)
+            get_B!(B, r1, r2, g1, g2, ρ, μ, K, ω=ω)
             Bprod2[:,:,j] .= B * (j==1 ? Bstart : @view(Bprod2[:,:,j-1]))
             # @inline Bprod2[:,:,j] .= get_B(r1, r2, g1, g2, ρ, μ, K) * (j==1 ? Bstart : @view(Bprod2[:,:,j-1]))
 
@@ -669,18 +670,6 @@ module TidalLoveNumbers
                 ϵ[:,:,6,j,i] = y2/rr * X3
                 
                 ϵV = (4μr*y1 - 2n*(n+1)μr*y2 + rr*y3)/(βr*rr) 
-
-                
-
-                # ϵ[:,:,1,j,i] = dy1dr * Y
-                # ϵ[:,:,2,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
-                # ϵ[:,:,3,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
-                # ϵ[:,:,4,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
-                # ϵ[:,:,5,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
-                # ϵ[:,:,6,j,i] = 0.5 * y2/rr * Z
-                # ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
-
-                
 
                 σ[:,:,1,j,i] .= λr * ϵV * Y .+ 2μr*ϵ[:,:,1,j,i] 
                 σ[:,:,2,j,i] .= λr * ϵV * Y .+ 2μr*ϵ[:,:,2,j,i] 
@@ -1027,7 +1016,8 @@ module TidalLoveNumbers
         return y
     end
 
-    function calculate_y(r, ρ, g, μ, K, core="liquid")
+    function calculate_y(r, ρ, g, μ, K, core="liquid"; ω=0.0)
+
         nlayers = size(r)[2]
         nsublayers = size(r)[1]
 
@@ -1040,7 +1030,7 @@ module TidalLoveNumbers
         
         for i in 2:nlayers
             Bprod = zeros(precc, 6, 6, nsublayers-1)
-            get_B_product2!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i])
+            get_B_product2!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i], ω=ω)
 
             for j in 1:nsublayers-1
                 y1_4[:,:,j,i] = Bprod[:,:,j] * y_start #y1_4[:,:,1,i]
@@ -1190,14 +1180,14 @@ module TidalLoveNumbers
                 λr = λ[i]
 
                 for j in 1:size(r)[1]-1 # Loop over sublayers 
-                    (y1, y2, y3, y4, y5, y6) = conj.(y[:,j,i])
+                    (y1, y2, y3, y4, y5, y6) = conj.(y[1:6,j,i])
                     
                     rr = r[j,i]
                     gr = g[j,i]
 
                     A = get_A(rr, ρr, gr, μr, κr)
-                    dy1dr = dot(A[1,:], y[:,j,i])
-                    dy2dr = dot(A[2,:], y[:,j,i])
+                    dy1dr = dot(A[1,:], y[1:6,j,i])
+                    dy2dr = dot(A[2,:], y[1:6,j,i])
 
                     # Compute strain tensor
                     ϵ[:,:,1,j,i] = dy1dr * Y
@@ -1230,10 +1220,13 @@ module TidalLoveNumbers
             end
         end
 
-        Eₛ_vol = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
-        Eₛ_vol_layer_sph_avg = zeros(  (size(r)[2]) )
-        Eₛ_vol_layer_sph_avg_secondary = zeros(  size(r) )
-        Eₛ_total = 0.0
+        Eμ = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+        Eμ_layer_sph_avg = zeros(  (size(r)[2]) )
+        Eμ_layer_sph_avg_rr = zeros(  size(r) )
+
+        Eκ = zero(Eμ)
+        Eκ_layer_sph_avg = zero( Eμ_layer_sph_avg )
+        Eκ_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
 
         for j in 2:size(r)[2]   # loop from CMB to surface
             layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
@@ -1243,21 +1236,207 @@ module TidalLoveNumbers
                 dr = (r[i+1, j] - r[i, j])
                 dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
-                # Dissipated energy per unit volume
-                Eₛ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
-                Eₛ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
-                Eₛ_vol[:,:,i, j] .*= -0.25ω
-
+                Eμ[:,:,i, j] = sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+                Eμ[:,:,i, j] .*= ω * imag(μ[j])
+    
+                Eκ[:,:,i, j] = ω/2 *imag(κ[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+    
                 # # Integrate across r to find dissipated energy per unit area
-                # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
-                Eₛ_vol_layer_sph_avg_secondary[i,j] = sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr /dvol
-                Eₛ_vol_layer_sph_avg[j] += Eₛ_vol_layer_sph_avg_secondary[i,j]*dvol
-                # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
+        
+                Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
+    
+                Eκ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eκ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                Eκ_layer_sph_avg[j] += Eκ_layer_sph_avg_rr[i,j]*dvol
             end
 
-            Eₛ_vol_layer_sph_avg[j] /= layer_volume
+            Eμ_layer_sph_avg[j] /= layer_volume
+            Eκ_layer_sph_avg[j] /= layer_volume
         end
 
-        return Eₛ_vol_layer_sph_avg, Eₛ_vol_layer_sph_avg_secondary
+        return (Eμ_layer_sph_avg, Eμ_layer_sph_avg_rr), 
+                (Eκ_layer_sph_avg, Eκ_layer_sph_avg_rr) 
+    end
+
+
+# Get a radial profile of the volumetric heating rate
+function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k, ecc; res=20.0)
+    dres = deg2rad(res)
+    λ = Ks .- 2μ/3
+    R = r[end,end]
+
+    lons = deg2rad.(collect(0:res:360-0.001))'
+    clats = deg2rad.(collect(0:res:180))
+
+    clats[1] += 1e-6
+    clats[end] -= 1e-6
+    cosTheta = cos.(clats)
+
+    ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
+    σ = zero(ϵ)
+    q_flux = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
+
+    p = zeros(ComplexF64, length(clats), length(lons), size(r)[1]-1, size(r)[2])
+
+    ϵs = zero(ϵ)
+    σs = zero(ϵ)
+    qs = zero(q_flux)
+    ps = zero(p)
+
+    # Eccentricity tide forcing coefficients
+    U22E =  7/8 * ω^2*R^2*ecc 
+    U22W = -1/8 * ω^2*R^2*ecc
+    U20  = -3/2 * ω^2*R^2*ecc
+
+    # Better way to do this? (Analytical expression?)
+    n = 2
+    for m in [-2, 2, 0]
+        Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+        S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
+
+        if iszero(abs(m))
+            dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
+            dYdϕ = Y * 1im * m
+
+            Z = 0.0 * Y
+            X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
+
+        elseif  abs(m) == 2
+            dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
+            dYdϕ = Y * 1im * m
+            
+            Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
+            X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
+        end
+
+        for i in 2:size(r)[2] # Loop of layers
+            ρr = ρ[i]
+            Ksr = Ks[i]
+            μr = μ[i]
+            λr = λ[i]
+            ρlr = ρl[i]
+            Klr = Kl[i]
+            Kdr = Kd[i]
+            αr = α[i]
+            ηlr = ηl[i]
+            ϕr = ϕ[i]
+            kr = k[i]
+
+            for j in 1:size(r)[1]-1 # Loop over sublayers 
+                (y1, y2, y3, y4, y5, y6, y7, y8) = conj.(y[:,j,i])
+                
+                rr = r[j,i]
+                gr = g[j,i]
+
+                A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
+                dy1dr = dot(A[1,:], y[:,j,i])
+                dy2dr = dot(A[2,:], y[:,j,i])
+
+                # Compute strain tensor
+                ϵ[:,:,1,j,i] = dy1dr * Y
+                ϵ[:,:,2,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
+                ϵ[:,:,3,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
+                ϵ[:,:,4,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
+                ϵ[:,:,5,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
+                ϵ[:,:,6,j,i] = 0.5 * y2/rr * Z
+                ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
+
+                # Compute stress tensor
+                σ[:,:,1,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,1,j,i] 
+                σ[:,:,2,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,2,j,i] 
+                σ[:,:,3,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,3,j,i] 
+                σ[:,:,4,j,i] .= 2μr * ϵ[:,:,4,j,i]
+                σ[:,:,5,j,i] .= 2μr * ϵ[:,:,5,j,i]
+                σ[:,:,6,j,i] .= 2μr * ϵ[:,:,6,j,i]
+
+                if ϕ[i] > 0
+                    y9 = 1im * kr / (ω*ϕr*ηlr*rr) * (ρlr*gr*y1 - ρlr * y5 + ρlr*gr*y8 + y7)
+
+                    q_flux[:,:,1,j,i] .= y8 * Y
+                    q_flux[:,:,2,j,i] .= y9 * dYdθ
+                    q_flux[:,:,3,j,i] .= y9 * dYdϕ .* 1.0 ./ sin.(clats)
+
+                    # q_flux[:,:,:,j,i] .= get_darcy_displacement(y1, y5, y7, y8, rr, ω, ϕr, ηlr, kr, gr, ρlr, Y, S)
+                end
+
+                p[:,:,j,i] .= y7 * Y    # pore pressure
+
+            end
+        end
+
+        if m==-2
+            ϵs .+= U22W*ϵ
+            σs .+= U22W*σ
+            qs .+= U22W*q_flux
+            ps .+= U22W*p
+        elseif m==2
+            ϵs .+= U22E*ϵ
+            σs .+= U22E*σ
+            qs .+= U22E*q_flux
+            ps .+= U22E*p
+        else
+            ϵs .+= U20*ϵ
+            σs .+= U20*σ
+            qs .+= U20*q_flux
+            ps .+= U20*p
+        end
+    end
+
+    # Shear heating in the solid
+    Eμ = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    Eμ_layer_sph_avg = zeros(  (size(r)[2]) )
+    Eμ_layer_sph_avg_rr = zeros(  size(r) )
+
+    # Darcy dissipation in the liquid
+    El = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    El_layer_sph_avg = zeros(  (size(r)[2]) )
+    El_layer_sph_avg_rr = zeros(  size(r) )
+
+    # Bulk dissipation in the solid
+    Eκ = zero(Eμ)
+    Eκ_layer_sph_avg = zero( Eμ_layer_sph_avg )
+    Eκ_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
+
+    for j in 2:size(r)[2]   # loop from CMB to surface
+        layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
+
+        for i in 1:size(r)[1]-1
+
+            dr = (r[i+1, j] - r[i, j])
+            dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
+
+            Eμ[:,:,i, j] = sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+            Eμ[:,:,i, j] .*= ω * imag(μ[j])
+
+            Eκ[:,:,i, j] = ω/2 *imag(Kd[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+            if ϕ[j] > 0
+                Eκ[:,:,i, j] .+= ω/2 *imag(Kd[j]) * (abs.(ps[:,:,i,j]) ./ Ks[j]).^2
+            end
+
+            # Integrate across r to find dissipated energy per unit area
+        
+            Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+            Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
+
+            Eκ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eκ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+            Eκ_layer_sph_avg[j] += Eκ_layer_sph_avg_rr[i,j]*dvol
+       
+            if ϕ[j] > 0            
+                El[:,:,i, j] = 0.5 *  ϕ[j]^2 * ω^2 * ηl[j]/k[j] * (abs.(qs[:,:,1,i,j]).^2 + abs.(qs[:,:,2,i,j]).^2 + abs.(qs[:,:,3,i,j]).^2)
+                El_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (El[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                El_layer_sph_avg[j] += El_layer_sph_avg_rr[i,j]*dvol
+
+            end
+
+        end
+
+        Eμ_layer_sph_avg[j] /= layer_volume
+        Eκ_layer_sph_avg[j] /= layer_volume
+        El_layer_sph_avg[j] /= layer_volume
+    end
+
+    return (Eμ_layer_sph_avg, Eμ_layer_sph_avg_rr), 
+            (Eκ_layer_sph_avg, Eκ_layer_sph_avg_rr), 
+            (El_layer_sph_avg, El_layer_sph_avg_rr) 
     end
 end
