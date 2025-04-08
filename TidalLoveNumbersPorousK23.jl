@@ -31,12 +31,13 @@ module TidalLoveNumbers
     export expand_layers, set_G, calculate_y
     export get_displacement, get_darcy_velocity, get_solution
     export get_total_heating, get_heating_profile
+    export define_spherical_grid
 
-    # prec = Float64 #BigFloat
-    # precc = ComplexF64 #Complex{BigFloat}
+    prec = Float64 #BigFloat
+    precc = ComplexF64 #Complex{BigFloat}
 
-    prec = Double64 #BigFloat
-    precc = ComplexDF64 #Complex{BigFloat}
+    # prec = Double64 #BigFloat
+    # precc = ComplexDF64 #Complex{BigFloat}
 
     # prec = BigFloat
     # precc = Complex{BigFloat}
@@ -48,8 +49,6 @@ module TidalLoveNumbers
 
     M = 6 + 2porous         # Matrix size: 6x6 if only solid material, 8x8 for two-phases
     nr = 3000           # Number of sub-layers in each layer (TODO: change to an array)
-
-    # α = 0.95
 
     TM8 = MArray{Tuple{8, 8}, precc}
     TM6 = MArray{Tuple{6, 6}, precc}
@@ -78,6 +77,18 @@ module TidalLoveNumbers
     Amid = zeros(precc, 6, 6)
     Atop = zeros(precc, 6, 6)
 
+    clats = 0.0
+    lons = 0.0
+    Y = 0.0
+    dYdθ = 0.0
+    dYdϕ = 0.0
+    Z = 0.0
+    X = 0.0
+    res = 0.0
+
+        
+    
+
     # Overwrite Gravitional constant for non-dimensional 
     # calculations
     function set_G(new_G)
@@ -89,9 +100,6 @@ module TidalLoveNumbers
     end
 
     function get_g(r, ρ)
-        # g = zeros(Double64, size(r))
-        # M = zeros(Double64, size(r))
-
         g = zeros(prec, size(r))
         M = zeros(prec, size(r))
 
@@ -103,7 +111,6 @@ module TidalLoveNumbers
         g[1,2:end] = g[end,1:end-1]
 
         return g
-
     end
 
     function get_A(r, ρ, g, μ, K; ω=0.0)
@@ -146,7 +153,6 @@ module TidalLoveNumbers
         A[4,5] = -ρ*r_inv
         A[5,5] = -(n+1)r_inv
 
-
         A[3,6] = -ρ
         A[5,6] = 1.0
         A[6,6] = (n-1)r_inv
@@ -160,7 +166,6 @@ module TidalLoveNumbers
         return A
     end
 
-
     function get_A!(A::Matrix, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
 
         if isinf(Kl) && isinf(K)
@@ -173,15 +178,6 @@ module TidalLoveNumbers
             M_inv = 0.0
 
         else
-
-            # if abs.(imag.(Kd)) > 0.0
-            #     α = Kd/K
-            # else
-            #     α = 1 - Kd/K
-            # end
-
-            # Kd = (1-α)* K
-
             λ = Kd .- 2μ/3
             Kₛ = K
             M_inv = 1 / ( K/(α - ϕ + ϕ*K/Kl) )
@@ -245,64 +241,17 @@ module TidalLoveNumbers
         
         ghalf = g1 + 0.5*(g2 - g1)
 
-        # A1 = get_A(r1, ρ, g1, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
-        # Ahalf = get_A(rhalf, ρ, ghalf, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
-        # A2 = get_A(r2, ρ, g2, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
-
-        # k1 = dr * A1 
-        # k2 = dr * Ahalf * (I + 0.5k1)
-        # k3 = dr * Ahalf * (I + 0.5k2)
-        # k4 = dr * A2 * (I + k3) 
-        # mul
-
-        # Abot_p[:] .= zero(Abot_p[1])
-        # Atop_p[:] .= zero(Atop_p[1])
-        # Amid_p[:] .= zero(Amid_p[1])
-
         get_A!(Abot_p, r1, ρ, g1, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
         get_A!(Amid_p, rhalf, ρ, ghalf, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
         get_A!(Atop_p, r2, ρ, g2, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
         
-        # k18 = dr * Abot_p 
-        # k28 = dr * Amid_p * (I8 + 0.5*k18) # dr*Amid_p + 0.5dr*Amid_p*k188
-        # k38 = dr * Amid_p * (I8 + 0.5*k28)
-        # k48 = dr * Atop_p * (I8 + k38) 
-
         k18 .= dr * Abot_p 
-        k28 .= dr *  (Amid_p .+ 0.5Amid_p *k18) # dr*Amid_p + 0.5dr*Amid_p*k188
+        k28 .= dr *  (Amid_p .+ 0.5Amid_p *k18) 
         k38 .= dr *  (Amid_p .+ 0.5*Amid_p *k28)
         k48 .= dr *  (Atop_p .+ Atop_p*k38) 
 
-        # mul!(k18, Abot_p, I8, dr, 0.0); # k18 = dr * Abot_p * I + 0*k18
-        # # mul!(k28, Amid_p, I8)
-        # copy!(k28, Amid_p)
-        # mul!(k28, Amid_p, k18, 0.5dr, 1.0)
-        # # mul!(k38, Amid_p, I8)
-        # copy!(k38, Amid_p)
-        # mul!(k38, Amid_p, k28, 0.5dr, 1.0)
-        # # mul!(k48, Atop_p, I8)
-        # copy!(k48, Amid_p)
-        # mul!(k48, Atop_p, k38, dr, 1.0)
-        
-        # mu
-
-        # mu
-        # get_A!(Abot, r1, ρ, g1, μ, K, ω, ρₗ, Kl, ηₗ, ϕ, k)
-        # get_A!(Amid, rhalf, ρ, ghalf, μ, K, ω, ρₗ, Kl, ηₗ, ϕ, k)
-        # get_A!(Atop, r2, ρ, g2, μ, K, ω, ρₗ, Kl, ηₗ, ϕ, k)
-        
-        # k1 = dr * Abot 
-        # k2 = dr * Amid * (I + 0.5k1)
-        # k3 = dr * Amid * (I + 0.5k2)
-        # k4 = dr * Atop * (I + k3) 
-
-        # B .= (I + dr/6.0 .* (k18 .+ 2k28 .+ 2k38 .+ k48))
-        # mul!(B, I8 + dr/6.0 .* (k18 .+ 2k28 .+ 2k38 .+ k48), I8)
         B .= (I8 + 1.0/6.0 .* (k18 .+ 2*(k28 .+ k38) .+ k48))
 
-        # B .= (I + dr/6.0 .* (Abot_p .+ 2 .* Amid_p * (I .+ 0.5*(dr * Abot_p)) .+ 2 .* k3 .+ k4))
-
-        # return B
     end
 
     function get_B(r1, r2, g1, g2, ρ, μ, K; ω=0.0)
@@ -316,19 +265,6 @@ module TidalLoveNumbers
         rhalf = r1 + 0.5dr
         
         ghalf = g1 + 0.5*(g2 - g1)
-
-        # A1 = get_A(r1, ρ, g1, μ, K)
-        # Ahalf = get_A(rhalf, ρ, ghalf, μ, K)
-        # A2 = get_A(r2, ρ, g2, μ, K)
-        
-        # k1 = dr * A1 
-        # k2 = dr * Ahalf * (I + 0.5 * k1)
-        # k3 = dr * Ahalf * (I + 0.5 * k2)
-        # k4 = dr * A2 * (I + k3) 
-
-        # Abot[:] .= zero(Abot[1])
-        # Atop[:] .= zero(Atop[1])
-        # Amid[:] .= zero(Amid[1])
 
         get_A!(Abot, r1, ρ, g1, μ, K, ω=ω)
         get_A!(Amid, rhalf, ρ, ghalf, μ, K, ω=ω)
@@ -367,7 +303,6 @@ module TidalLoveNumbers
 
         # return B
     end
-
 
     # second method: porous layer
     function get_B_product(r, ρ, g, μ, K, i1=2, iend=nothing)
@@ -1129,16 +1064,13 @@ module TidalLoveNumbers
     
     # Get a radial profile of the volumetric heating rate for 
     # solid-body tides
-    function get_heating_profile(y, r, ρ, g, μ, κ, ω, ecc; res=20.0)
+    function get_heating_profile(y, r, ρ, g, μ, κ, ω, ecc)
         dres = deg2rad(res)
         λ = κ .- 2μ/3
         R = r[end,end]
 
-        lons = deg2rad.(collect(0:res:360-0.001))'
-        clats = deg2rad.(collect(0:res:180))
-
-        clats[1] += 1e-6
-        clats[end] -= 1e-6
+        @views clats = TidalLoveNumbers.clats[:]
+        @views lons = TidalLoveNumbers.lons[:]
         cosTheta = cos.(clats)
 
         ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
@@ -1154,24 +1086,15 @@ module TidalLoveNumbers
 
         # Better way to do this? (Analytical expression?)
         n = 2
-        for m in [-2, 2, 0]
-            Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
-            S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
+        ms = [-2, 0, 2]
+        for i in 1:length(ms)
+            m = ms[i]
 
-            if iszero(abs(m))
-                dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
-                dYdϕ = Y * 1im * m
-
-                Z = 0.0 * Y
-                X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
-
-            elseif  abs(m) == 2
-                dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
-                dYdϕ = Y * 1im * m
-                
-                Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
-                X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
-            end
+            @views Y    = TidalLoveNumbers.Y[i,:,:]
+            @views dYdθ = TidalLoveNumbers.dYdθ[i,:,:]
+            @views dYdϕ = TidalLoveNumbers.dYdϕ[i,:,:]
+            @views Z    = TidalLoveNumbers.Z[i,:,:]
+            @views X    = TidalLoveNumbers.X[i,:,:]
 
             for i in 2:size(r)[2] # Loop of layers
                 ρr = ρ[i]
@@ -1258,18 +1181,15 @@ module TidalLoveNumbers
                 (Eκ_layer_sph_avg, Eκ_layer_sph_avg_rr) 
     end
 
-
 # Get a radial profile of the volumetric heating rate
-function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k, ecc; res=20.0)
+function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k, ecc)
     dres = deg2rad(res)
     λ = Ks .- 2μ/3
     R = r[end,end]
 
-    lons = deg2rad.(collect(0:res:360-0.001))'
-    clats = deg2rad.(collect(0:res:180))
+    @views clats = TidalLoveNumbers.clats[:]
+    @views lons = TidalLoveNumbers.lons[:]
 
-    clats[1] += 1e-6
-    clats[end] -= 1e-6
     cosTheta = cos.(clats)
 
     ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
@@ -1290,24 +1210,32 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
 
     # Better way to do this? (Analytical expression?)
     n = 2
-    for m in [-2, 2, 0]
-        Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
-        S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
+    ms = [-2, 0, 2]
+    for i in 1:length(ms)
+        m = ms[i]
+        # Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+        # S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
 
-        if iszero(abs(m))
-            dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
-            dYdϕ = Y * 1im * m
+        @views Y    = TidalLoveNumbers.Y[i,:,:]
+        @views dYdθ = TidalLoveNumbers.dYdθ[i,:,:]
+        @views dYdϕ = TidalLoveNumbers.dYdϕ[i,:,:]
+        @views Z    = TidalLoveNumbers.Z[i,:,:]
+        @views X    = TidalLoveNumbers.X[i,:,:]
 
-            Z = 0.0 * Y
-            X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
+        # if iszero(abs(m))
+        #     dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
+        #     dYdϕ = Y * 1im * m
 
-        elseif  abs(m) == 2
-            dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
-            dYdϕ = Y * 1im * m
+        #     Z = 0.0 * Y
+        #     X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
+
+        # elseif  abs(m) == 2
+        #     dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
+        #     dYdϕ = Y * 1im * m
             
-            Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
-            X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
-        end
+        #     Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
+        #     X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
+        # end
 
         for i in 2:size(r)[2] # Loop of layers
             ρr = ρ[i]
@@ -1438,5 +1366,47 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
     return (Eμ_layer_sph_avg, Eμ_layer_sph_avg_rr), 
             (Eκ_layer_sph_avg, Eκ_layer_sph_avg_rr), 
             (El_layer_sph_avg, El_layer_sph_avg_rr) 
+    end
+
+    function define_spherical_grid(res; n=2)
+        TidalLoveNumbers.res = res
+
+        lons = deg2rad.(collect(0:res:360-0.001))'
+        clats = deg2rad.(collect(0:res:180))
+        clats[1] += 1e-6
+        clats[end] -= 1e-6
+        cosTheta = cos.(clats)
+
+        TidalLoveNumbers.Y = zeros(ComplexF64, 3, length(clats), length(lons))
+        TidalLoveNumbers.dYdθ = zero(TidalLoveNumbers.Y)
+        TidalLoveNumbers.dYdϕ = zero(TidalLoveNumbers.Y)
+        TidalLoveNumbers.Z    = zero(TidalLoveNumbers.Y)
+        TidalLoveNumbers.X    = zero(TidalLoveNumbers.Y)
+
+        ms = [-2, 0, 2]
+        for i in 1:length(ms)
+            m = ms[i]
+            TidalLoveNumbers.Y[i,:,:] .= m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+
+            if iszero(abs(m))
+                TidalLoveNumbers.dYdθ[i,:,:] = -1.5sin.(2clats) * exp.(1im * m * lons)
+                TidalLoveNumbers.dYdϕ[i,:,:] = TidalLoveNumbers.Y[i,:,:] * 1im * m
+
+                TidalLoveNumbers.Z[i,:,:] = 0.0 * TidalLoveNumbers.Y[i,:,:]
+                TidalLoveNumbers.X[i,:,:] = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*TidalLoveNumbers.Y[i]
+
+            elseif  abs(m) == 2
+                TidalLoveNumbers.dYdθ[i,:,:] = 3sin.(2clats) * exp.(1im * m * lons)
+                TidalLoveNumbers.dYdϕ[i,:,:] = Y[i,:,:] * 1im * m
+                
+                TidalLoveNumbers.Z[i,:,:] = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
+                TidalLoveNumbers.X[i,:,:] = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y[i,:,:] 
+            end
+
+        end
+
+        TidalLoveNumbers.clats = clats;
+        TidalLoveNumbers.lons = lons;
+
     end
 end
