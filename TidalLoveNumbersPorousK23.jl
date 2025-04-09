@@ -502,7 +502,7 @@ module TidalLoveNumbers
 
     end
 
-    function get_solution(y, n, m, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ecc)
+    function get_solution(y, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ecc)
         R = r[end,end]
 
         disp = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
@@ -517,7 +517,7 @@ module TidalLoveNumbers
         ϵs = zero(ϵ)
         ps = zero(p)
     
-
+        n = 2
         ms = [-2, 0, 2]
         forcing = [-1/8, -3/2, 7/8] * ω^2*R^2*ecc 
         
@@ -562,7 +562,7 @@ module TidalLoveNumbers
         return disps, ϵs, σs, ps, d_disps
     end
 
-    function get_solution(y, n, m, r, ρ, g, μ, K, ω, ecc)
+    function get_solution(y, r, ρ, g, μ, K, ω, ecc)
         R = r[end,end]
 
         disp = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
@@ -573,9 +573,9 @@ module TidalLoveNumbers
         σs = zero(σ)
         ϵs  = zero(ϵ)
 
+        n = 2
         ms = [-2, 0, 2]
         forcing = [-1/8, -3/2, 7/8] * ω^2*R^2*ecc 
-        
         for x in 1:length(ms)
             m = ms[x]
             for i in 2:size(r)[2] # Loop of layers
