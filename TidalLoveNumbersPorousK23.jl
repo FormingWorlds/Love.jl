@@ -28,7 +28,7 @@ module TidalLoveNumbers
     using StaticArrays
 
     export get_g, get_A!, get_A, get_B_product, get_Ic, get_B, get_B!
-    export expand_layers, set_G, calculate_y
+    export expand_layers, set_G, compute_y
     export get_displacement, get_darcy_velocity, get_solution
     export get_total_heating, get_heating_profile
     export define_spherical_grid
@@ -85,9 +85,6 @@ module TidalLoveNumbers
     Z = 0.0
     X = 0.0
     res = 0.0
-
-        
-    
 
     # Overwrite Gravitional constant for non-dimensional 
     # calculations
@@ -189,10 +186,6 @@ module TidalLoveNumbers
         r_inv = 1.0/r
         β_inv = 1.0/(2μ + λ)
 
-        # if ϕ == 0.0
-        #     println(K, Kd)
-        # end
-
         if !iszero(ϕ)
             A[1,7] = α * β_inv
 
@@ -251,7 +244,6 @@ module TidalLoveNumbers
         k48 .= dr *  (Atop_p .+ Atop_p*k38) 
 
         B .= (I8 + 1.0/6.0 .* (k18 .+ 2*(k28 .+ k38) .+ k48))
-
     end
 
     function get_B(r1, r2, g1, g2, ρ, μ, K; ω=0.0)
@@ -288,20 +280,16 @@ module TidalLoveNumbers
         # get_A!(Abot, r1, ρ, g1, μ, K)
         # get_A!(Amid, rhalf, ρ, ghalf, μ, K)
         # get_A!(Atop, r2, ρ, g2, μ, K)
-        
-        # # display(Abot[1:6,1:6] .- A1)
 
         # k16 = dr * Abot[1:6,1:6] 
         # k26 = dr * Amid[1:6,1:6] * (I + 0.5k16)
         # k36 = dr * Amid[1:6,1:6] * (I + 0.5k26)
         # k46 = dr * Atop[1:6,1:6] * (I + k36) 
 
-        # println("here")
 
         # B[1:6,1:6] .= (I + 1.0/6.0 .* (k6[1] .+ 2*(k6[2] .+ k6[3]) .+ k6[4]))
         B[1:6,1:6] .= (I + 1.0/6.0 .* (k16 .+ 2*(k26 .+ k36) .+ k46))
 
-        # return B
     end
 
     # second method: porous layer -- for a specific layer?
@@ -472,61 +460,7 @@ module TidalLoveNumbers
         return disp, ϵs, σs
     end
 
-    
-
-
-    # function get_darcy_velocity(y, mag, k, r, ηₗ, ρₗ, ωt=0.0, res=5.0,n=2, m=2)
-    #     lons = deg2rad.(collect(0:res:360-0.001))'
-    #     clats = deg2rad.(collect(0:res:180))
-    #     cosTheta = cos.(clats)
-
-    #     Y22 = Ynm(2,2,clats,lons)
-    #     S22 = Snm(2,2,clats,lons)
-        
-    #     Y20 = Ynm(2,0,clats,lons) 
-    #     S20 = Snm(2,0,clats,lons)
-        
-    #     # Need to take conjugate in y here depending on whether the Fourier
-    #     # transform is taken with exp(-iωt) or exp(iωt)
-    #     # Also need negative sign due to the sign convention of the tidal potential
-    #     # U22 = -0.5*ω^2*R^2*e*(Y22 * (7/8 * exp(-1im *ωt) )) * conj.(y[1,end,end])
-    #     U22 = -0.5*mag*(Y22 * (7/8 * exp(-1im *ωt) - 1/8 *exp(1im *ωt) ))
-    #     U20 = -0.5*mag* -1.5(Y20 * exp(-1im * ωt) )
-
-    #     U22_theta = -0.5*mag*(S22[1] * (7/8 * exp(-1im *ωt) - 1/8 *exp(1im *ωt) ))
-    #     U22_phi = -0.5*mag*(S22[2] * (7/8 * exp(-1im *ωt) - 1/8 *exp(1im *ωt) ))
-    #     U20_theta = -0.5*mag* -1.5(S20[1] * exp(-1im * ωt) )
-    #     U20_phi = -0.5*mag* -1.5(S20[2] * exp(-1im * ωt) )
-
-    #     q_R22 =  U22 * conj.(y[8,end-10,end-1]) * -k[end-1]/ηₗ[end-1]
-    #     q_R22 .+= conj.(q_R22)
-
-    #     q_R20 = U20 * conj.(y[8,end-10,end-1]) * -k[end-1]/ηₗ[end-1]
-    #     q_R20 .+= conj.(q_R20) 
-
-    #     q_S22_theta = U22_theta  * -k[end-1]/ηₗ[end-1] * 1/r * ( conj.(y[7,end,end-1]) .+ ρₗ[end-1]*conj.(y[5,end,end-1])) 
-    #     q_S22_theta .+= conj.(q_S22_theta)
-
-    #     q_S22_phi = U22_phi * -k[end-1]/ηₗ[end-1] * 1/r * ( conj.(y[7,end,end-1]) .+ ρₗ[end-1]*conj.(y[5,end,end-1]))
-    #     q_S22_phi .+= conj.(q_S22_phi)
-
-    #     q_S20_theta = U20_theta * -k[end-1]/ηₗ[end-1] * 1/r * ( conj.(y[7,end,end-1]) .+ ρₗ[end-1]*conj.(y[5,end,end-1]))
-    #     q_S20_theta .+= conj.(q_S20_theta)
-
-    #     q_S20_phi = U20_phi * -k[end-1]/ηₗ[end-1] * 1/r * ( conj.(y[7,end,end-1]) .+ ρₗ[end-1]*conj.(y[5,end,end-1]))
-    #     q_S20_phi .+= conj.(q_S20_phi)
-
-    #     # Return drops the imaginary component, which should be zero anyway. Add check?
-    #     # Radial component, theta component, phi component
-
-    #     q_vec = hcat(real.(q_R22 + q_R20), real(q_S22_theta + q_S20_theta), real(q_S22_phi + q_S20_phi))  
-
-    #     return reshape(q_vec, (length(clats), length(lons), 3) )   
-    # end
-
-    
-
-    function calculate_y(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, core="liquid")
+    function compute_y(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, core="liquid")
         porous_layer = ϕ .> 0.0
 
         sum(porous_layer) > 1.0 && error("Can only handle one porous layer for now!")
@@ -595,7 +529,7 @@ module TidalLoveNumbers
         return y
     end
 
-    function calculate_y(r, ρ, g, μ, K, core="liquid"; ω=0.0)
+    function compute_y(r, ρ, g, μ, K, core="liquid"; ω=0.0)
 
         nlayers = size(r)[2]
         nsublayers = size(r)[1]
