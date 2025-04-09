@@ -691,7 +691,6 @@ module TidalLoveNumbers
                 ϵ[:,:,1,j,i] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3)/(βr*rr)  * Y                                                    
                 ϵ[:,:,2,j,i] = (y1 * Y .+  y2 * d2Ydθ2)/rr
                 ϵ[:,:,3,j,i] = (y1*Y .+ y2*X2)/rr
-                # println(size(y4), " ", size(dYdθ))
                 ϵ[:,:,4,j,i] = 0.5/μr * y4 * dYdθ
                 
                 ϵ[:,:,5,j,i] = 0.5/μr * y4 * dYdϕ .* 1.0 ./ sin.(clats) 
@@ -998,8 +997,6 @@ module TidalLoveNumbers
         return y
     end
 
-
-
     function get_Ic(r, ρ, g, μ, type, M=6, N=3)
         # Ic = zeros(Double64, M, N)
         Ic = zeros(precc, M, N)
@@ -1074,17 +1071,13 @@ module TidalLoveNumbers
         cosTheta = cos.(clats)
 
         ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
-        σ = zero(ϵ)
-
         ϵs = zero(ϵ)
-        σs = zero(ϵ)
 
         # Eccentricity tide forcing coefficients (These should be called from a function)
         U22E =  7/8 * ω^2*R^2*ecc 
         U22W = -1/8 * ω^2*R^2*ecc
         U20  = -3/2 * ω^2*R^2*ecc
 
-        # Better way to do this? (Analytical expression?)
         n = 2
         ms = [-2, 0, 2]
         for i in 1:length(ms)
@@ -1103,47 +1096,27 @@ module TidalLoveNumbers
                 λr = λ[i]
 
                 for j in 1:size(r)[1]-1 # Loop over sublayers 
-                    (y1, y2, y3, y4, y5, y6) = conj.(y[1:6,j,i])
+                    yrr = conj.(y[1:6,j,i])
+                    (y1, y2, y3, y4, y5, y6) = yrr
                     
                     rr = r[j,i]
                     gr = g[j,i]
 
-                    A = get_A(rr, ρr, gr, μr, κr)
-                    dy1dr = dot(A[1,:], y[1:6,j,i])
-                    dy2dr = dot(A[2,:], y[1:6,j,i])
+                    compute_strain_ten!(@view(ϵ[:,:,:,j,i]), yrr, m, rr, ρr, gr, μr, κr)
 
-                    # Compute strain tensor
-                    ϵ[:,:,1,j,i] = dy1dr * Y
-                    ϵ[:,:,2,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
-                    ϵ[:,:,3,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
-                    ϵ[:,:,4,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
-                    ϵ[:,:,5,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
-                    ϵ[:,:,6,j,i] = 0.5 * y2/rr * Z
-                    ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
-
-                    # Compute stress tensor
-                    σ[:,:,1,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,1,j,i] 
-                    σ[:,:,2,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,2,j,i] 
-                    σ[:,:,3,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,3,j,i] 
-                    σ[:,:,4,j,i] .= 2μr * ϵ[:,:,4,j,i]
-                    σ[:,:,5,j,i] .= 2μr * ϵ[:,:,5,j,i]
-                    σ[:,:,6,j,i] .= 2μr * ϵ[:,:,6,j,i]
                 end
             end
 
             if m==-2
                 ϵs .+= U22W*ϵ
-                σs .+= U22W*σ
             elseif m==2
                 ϵs .+= U22E*ϵ
-                σs .+= U22E*σ
             else
                 ϵs .+= U20*ϵ
-                σs .+= U20*σ
             end
         end
 
-        Eμ = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+        Eμ = zeros(  (size(ϵ)[1], size(ϵ)[2], size(ϵ)[4], size(ϵ)[5]) )
         Eμ_layer_sph_avg = zeros(  (size(r)[2]) )
         Eμ_layer_sph_avg_rr = zeros(  size(r) )
 
@@ -1164,8 +1137,7 @@ module TidalLoveNumbers
     
                 Eκ[:,:,i, j] = ω/2 *imag(κ[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
     
-                # # Integrate across r to find dissipated energy per unit area
-        
+                # Integrate across r to find dissipated energy per unit area
                 Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
                 Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
     
@@ -1193,13 +1165,10 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
     cosTheta = cos.(clats)
 
     ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
-    σ = zero(ϵ)
     q_flux = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
-
     p = zeros(ComplexF64, length(clats), length(lons), size(r)[1]-1, size(r)[2])
 
     ϵs = zero(ϵ)
-    σs = zero(ϵ)
     qs = zero(q_flux)
     ps = zero(p)
 
@@ -1208,34 +1177,16 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
     U22W = -1/8 * ω^2*R^2*ecc
     U20  = -3/2 * ω^2*R^2*ecc
 
-    # Better way to do this? (Analytical expression?)
     n = 2
     ms = [-2, 0, 2]
     for i in 1:length(ms)
         m = ms[i]
-        # Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
-        # S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
 
         @views Y    = TidalLoveNumbers.Y[i,:,:]
         @views dYdθ = TidalLoveNumbers.dYdθ[i,:,:]
         @views dYdϕ = TidalLoveNumbers.dYdϕ[i,:,:]
         @views Z    = TidalLoveNumbers.Z[i,:,:]
         @views X    = TidalLoveNumbers.X[i,:,:]
-
-        # if iszero(abs(m))
-        #     dYdθ = -1.5sin.(2clats) * exp.(1im * m * lons)
-        #     dYdϕ = Y * 1im * m
-
-        #     Z = 0.0 * Y
-        #     X = -6cos.(2clats)*exp.(1im *m * lons) .+ n*(n+1)*Y
-
-        # elseif  abs(m) == 2
-        #     dYdθ = 3sin.(2clats) * exp.(1im * m * lons)
-        #     dYdϕ = Y * 1im * m
-            
-        #     Z = 6 * 1im * m * cos.(clats) * exp.(1im * m * lons)
-        #     X = 12cos.(2clats)* exp.(1im * m * lons) .+ n*(n+1)*Y 
-        # end
 
         for i in 2:size(r)[2] # Loop of layers
             ρr = ρ[i]
@@ -1251,31 +1202,13 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
             kr = k[i]
 
             for j in 1:size(r)[1]-1 # Loop over sublayers 
-                (y1, y2, y3, y4, y5, y6, y7, y8) = conj.(y[:,j,i])
+                yrr = conj.(y[:,j,i])
+                (y1, y2, y3, y4, y5, y6, y7, y8) = yrr
                 
                 rr = r[j,i]
                 gr = g[j,i]
 
-                A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
-                dy1dr = dot(A[1,:], y[:,j,i])
-                dy2dr = dot(A[2,:], y[:,j,i])
-
-                # Compute strain tensor
-                ϵ[:,:,1,j,i] = dy1dr * Y
-                ϵ[:,:,2,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
-                ϵ[:,:,3,j,i] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
-                ϵ[:,:,4,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
-                ϵ[:,:,5,j,i] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
-                ϵ[:,:,6,j,i] = 0.5 * y2/rr * Z
-                ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
-
-                # Compute stress tensor
-                σ[:,:,1,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,1,j,i] 
-                σ[:,:,2,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,2,j,i] 
-                σ[:,:,3,j,i] .= λr * ϵV * Y + 2μr*ϵ[:,:,3,j,i] 
-                σ[:,:,4,j,i] .= 2μr * ϵ[:,:,4,j,i]
-                σ[:,:,5,j,i] .= 2μr * ϵ[:,:,5,j,i]
-                σ[:,:,6,j,i] .= 2μr * ϵ[:,:,6,j,i]
+                compute_strain_ten!(@view(ϵ[:,:,:,j,i]), yrr, m, rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
 
                 if ϕ[i] > 0
                     y9 = 1im * kr / (ω*ϕr*ηlr*rr) * (ρlr*gr*y1 - ρlr * y5 + ρlr*gr*y8 + y7)
@@ -1283,8 +1216,6 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
                     q_flux[:,:,1,j,i] .= y8 * Y
                     q_flux[:,:,2,j,i] .= y9 * dYdθ
                     q_flux[:,:,3,j,i] .= y9 * dYdϕ .* 1.0 ./ sin.(clats)
-
-                    # q_flux[:,:,:,j,i] .= get_darcy_displacement(y1, y5, y7, y8, rr, ω, ϕr, ηlr, kr, gr, ρlr, Y, S)
                 end
 
                 p[:,:,j,i] .= y7 * Y    # pore pressure
@@ -1294,29 +1225,26 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
 
         if m==-2
             ϵs .+= U22W*ϵ
-            σs .+= U22W*σ
             qs .+= U22W*q_flux
             ps .+= U22W*p
         elseif m==2
             ϵs .+= U22E*ϵ
-            σs .+= U22E*σ
             qs .+= U22E*q_flux
             ps .+= U22E*p
         else
             ϵs .+= U20*ϵ
-            σs .+= U20*σ
             qs .+= U20*q_flux
             ps .+= U20*p
         end
     end
 
     # Shear heating in the solid
-    Eμ = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    Eμ = zeros(  (size(ϵ)[1], size(ϵ)[2], size(ϵ)[4], size(ϵ)[5]) )
     Eμ_layer_sph_avg = zeros(  (size(r)[2]) )
     Eμ_layer_sph_avg_rr = zeros(  size(r) )
 
     # Darcy dissipation in the liquid
-    El = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
+    El = zeros(  (size(ϵ)[1], size(ϵ)[2], size(ϵ)[4], size(ϵ)[5]) )
     El_layer_sph_avg = zeros(  (size(r)[2]) )
     El_layer_sph_avg_rr = zeros(  size(r) )
 
@@ -1329,7 +1257,6 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
         layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
 
         for i in 1:size(r)[1]-1
-
             dr = (r[i+1, j] - r[i, j])
             dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
@@ -1377,7 +1304,7 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
         clats[end] -= 1e-6
         cosTheta = cos.(clats)
 
-        TidalLoveNumbers.Y = zeros(ComplexF64, 3, length(clats), length(lons))
+        TidalLoveNumbers.Y    = zeros(ComplexF64, 3, length(clats), length(lons))
         TidalLoveNumbers.dYdθ = zero(TidalLoveNumbers.Y)
         TidalLoveNumbers.dYdϕ = zero(TidalLoveNumbers.Y)
         TidalLoveNumbers.Z    = zero(TidalLoveNumbers.Y)
@@ -1409,4 +1336,146 @@ function get_heating_profile(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, 
         TidalLoveNumbers.lons = lons;
 
     end
+
+    function compute_strain_ten!(ϵ, y, m, rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
+        if m == -2
+            i=1
+        elseif m == 0
+            i=2
+        elseif m == 2
+            i=3
+        else
+            error("m must be -2, 0, or 2")
+        end
+
+        @views Y    = TidalLoveNumbers.Y[i,:,:]
+        @views dYdθ = TidalLoveNumbers.dYdθ[i,:,:]
+        @views dYdϕ = TidalLoveNumbers.dYdϕ[i,:,:]
+        @views Z    = TidalLoveNumbers.Z[i,:,:]
+        @views X    = TidalLoveNumbers.X[i,:,:]
+
+        A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
+        dy1dr = dot(A[1,:], y[:])
+        dy2dr = dot(A[2,:], y[:])
+
+        y1 = y[1]
+        y2 = y[2]
+        y3 = y[3]
+        y4 = y[4]
+        y7 = y[7]
+
+        λr = Kdr - 2μr/3
+        βr = λr + 2μr
+
+        # Compute strain tensor
+        # ϵ[:,:,1] = dy1dr * Y
+        ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3 + rr*αr*y7)/(βr*rr)  * Y
+        ϵ[:,:,2] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
+        ϵ[:,:,3] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
+        # ϵ[:,:,4] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
+        # ϵ[:,:,5] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
+        ϵ[:,:,4] = 0.5/μr * y4 * dYdθ        
+        ϵ[:,:,5] = 0.5/μr * y4 * dYdϕ .* 1.0 ./ sin.(clats) 
+        ϵ[:,:,6] = 0.5 * y2/rr * Z
+    end
+
+    function compute_stress_ten!(σ, ϵ, y, m, rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
+        if m == -2
+            i=1
+        elseif m == 0
+            i=2
+        elseif m == 2
+            i=3
+        else
+            error("m must be -2, 0, or 2")
+        end
+
+        @views Y    = TidalLoveNumbers.Y[i,:,:]
+
+        y1 = y[1]
+        y2 = y[2]
+        y7 = y[7]
+
+        λr = Ksr .- 2μr/3
+
+        ϵV = sum.(ϵ[:,:,1:3], dims=3)   # trace of strain ten
+        F = (λr * ϵV - αr*y7) * Y
+        σ[:,:,1] .= F + 2μr*ϵ[:,:,1]  
+        σ[:,:,2] .= F + 2μr*ϵ[:,:,2] 
+        σ[:,:,3] .= F + 2μr*ϵ[:,:,3] 
+        σ[:,:,4] .= 2μr * ϵ[:,:,4]
+        σ[:,:,5] .= 2μr * ϵ[:,:,5]
+        σ[:,:,6] .= 2μr * ϵ[:,:,6]
+    end
+
+
+    function compute_strain_ten!(ϵ, y, m, rr, ρr, gr, μr, Ksr)
+        if m == -2
+            i=1
+        elseif m == 0
+            i=2
+        elseif m == 2
+            i=3
+        else
+            error("m must be -2, 0, or 2")
+        end
+
+        @views Y    = TidalLoveNumbers.Y[i,:,:]
+        @views dYdθ = TidalLoveNumbers.dYdθ[i,:,:]
+        @views dYdϕ = TidalLoveNumbers.dYdϕ[i,:,:]
+        @views Z    = TidalLoveNumbers.Z[i,:,:]
+        @views X    = TidalLoveNumbers.X[i,:,:]
+
+        # A = get_A(rr, ρr, gr, μr, Ksr)
+        # dy1dr = dot(A[1,:], y[:])
+        # dy2dr = dot(A[2,:], y[:])
+
+        y1 = y[1]
+        y2 = y[2]
+        y3 = y[3]
+        y4 = y[4]
+
+        λr = Ksr .- 2μr/3
+        βr = λr + 2μr
+
+        # Compute strain tensor
+        ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3)/(βr*rr)  * Y
+        ϵ[:,:,2] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
+        ϵ[:,:,3] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
+        # ϵ[:,:,4] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
+        # ϵ[:,:,5] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
+        ϵ[:,:,4] = 0.5/μr * y4 * dYdθ        
+        ϵ[:,:,5] = 0.5/μr * y4 * dYdϕ .* 1.0 ./ sin.(clats) 
+        ϵ[:,:,6] = 0.5 * y2/rr * Z
+    end
+
+    function compute_stress_ten!(σ, ϵ, y, m, rr, ρr, gr, μr, κsr)
+        if m == -2
+            i=1
+        elseif m == 0
+            i=2
+        elseif m == 2
+            i=3
+        else
+            error("m must be -2, 0, or 2")
+        end
+
+        @views Y    = TidalLoveNumbers.Y[i,:,:]
+
+        y1 = y[1]
+        y2 = y[2]
+
+        λr = κsr .- 2μr/3
+
+        ϵV = sum.(ϵ[:,:,1:3], dims=3)   # trace of strain ten
+        F = (λr * ϵV) * Y
+        σ[:,:,1] .= F + 2μr*ϵ[:,:,1]  
+        σ[:,:,2] .= F + 2μr*ϵ[:,:,2] 
+        σ[:,:,3] .= F + 2μr*ϵ[:,:,3] 
+        σ[:,:,4] .= 2μr * ϵ[:,:,4]
+        σ[:,:,5] .= 2μr * ϵ[:,:,5]
+        σ[:,:,6] .= 2μr * ϵ[:,:,6]
+    end
+
+
 end
