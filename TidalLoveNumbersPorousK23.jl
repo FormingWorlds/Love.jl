@@ -304,134 +304,8 @@ module TidalLoveNumbers
         # return B
     end
 
-    # second method: porous layer
-    function get_B_product(r, ρ, g, μ, K, i1=2, iend=nothing)
-        # Bprod = zeros(ComplexDF64, length(r), 8, 8)
-    
-        # B = zeros(ComplexDF64, 8, 8)
-        B = zeros(precc, 6, 6)
-        # B = I # Set B to the Identity matrix
-        # B[7,7] = 0.0
-        # Bprod[1,:,:] .= B[:,:]
-        for i in 1:6
-            B[i,i] = 1
-        end
-
-        layer_num = size(r)[2]
-        nr = size(r)[1]
-
-
-        # Bprod = zeros(ComplexDF64, (8, 8, nr-1, layer_num))
-        Bprod = zeros(precc, (6, 6, nr-1, layer_num))
-
-        r1 = r[1]
-        if isnothing(iend)
-            iend = layer_num
-        end
-
-        for i in i1:iend # start at the top of the innermost layer
-            r1 = r[1,i]
-            for j in 1:nr-1
-                r2 = r[j+1,i]
-                dr = r2 - r1
-                rhalf = r1 + 0.5dr
-
-                r2 = r[j+1, i]
-                g1 = g[j, i]
-                g2 = g[j+1, i]
-
-                B = get_B(r1, r2, g1, g2, ρ[i], μ[i], K[i]) * B 
-                
-                Bprod[:,:,j,i] .= B[:,:]
-
-                r1 = r2
-            end
-        end
-
-        return Bprod
-    end
-
-
-    # second method: porous layer
-    function get_B_product(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, i1=2, iend=nothing)
-        # Bprod = zeros(ComplexDF64, length(r), 8, 8)
-    
-        # B = zeros(ComplexDF64, 8, 8)
-        B = zeros(precc, 8, 8)
-        # B = I # Set B to the Identity matrix
-        # B[7,7] = 0.0
-        # Bprod[1,:,:] .= B[:,:]
-        for i in 1:6
-            B[i,i] = 1
-        end
-
-        # if starting from a porous layer, 
-        # don't filter out y7 and y8 components
-        if ϕ[i1]>0
-            B[7,7] = 1
-            B[8,8] = 1
-        end
-
-        layer_num = size(r)[2]
-        nr = size(r)[1]
-
-
-        # Bprod = zeros(ComplexDF64, (8, 8, nr-1, layer_num))
-        Bprod = zeros(precc, (8, 8, nr-1, layer_num))
-
-        r1 = r[1]
-        if isnothing(iend)
-            iend = layer_num
-        end
-
-        # Pδ = zeros(Int64, 8, 8)
-        Pδ = zeros(BigInt, 8, 8)
-        Pδ[1,1] = 1
-        Pδ[2,2] = 1
-        Pδ[3,3] = 1
-        Pδ[4,4] = 1
-        Pδ[5,5] = 1
-        Pδ[6,6] = 1
-
-        for i in i1:iend # start at the top of the innermost layer
-            r1 = r[1,i]
-            for j in 1:nr-1
-                r2 = r[j+1,i]
-                dr = r2 - r1
-                rhalf = r1 + 0.5dr
-
-                r2 = r[j+1, i]
-                g1 = g[j, i]
-                g2 = g[j+1, i]
-
-                if ϕ[i] > 0 && j>1
-                    Pδ[7,7] = 1
-                    Pδ[8,8] = 1
-                else
-                    Pδ[7,7] = 0
-                    Pδ[8,8] = 0
-                end
-
-                # In the first integration, don't filter out 
-                # y7 and y8. Better way to do this? 
-                if i==i1 && j==1
-                    Pδ[7,7] = 1
-                    Pδ[8,8] = 1
-                end
-    
-                B = get_B(r1, r2, g1, g2, ρ[i], μ[i], K[i], ω, ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i]) * B * Pδ
-               
-                Bprod[:,:,j,i] .= B[:,:]
-
-                r1 = r2
-            end
-        end
-
-        return Bprod
-    end
-
     # second method: porous layer -- for a specific layer?
-    function get_B_product2!(Bprod2, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
+    function get_B_product!(Bprod2, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k)
         # Check dimensions of Bprod2
 
         nr = size(r)[1]
@@ -470,7 +344,7 @@ module TidalLoveNumbers
     end
 
     # first method: solid layer -- for a specific layer?
-    function get_B_product2!(Bprod2, r, ρ, g, μ, K; ω=0.0)
+    function get_B_product!(Bprod2, r, ρ, g, μ, K; ω=0.0)
         # Check dimensions of Bprod2
 
         Bstart = zeros(precc, 6, 6)
@@ -494,12 +368,6 @@ module TidalLoveNumbers
 
             r1 = r2
         end
-    end
-
-    # Create R and S vectors?
-    function set_sph_expansion(res=5.0)
-
-
     end
 
     function get_solution(y, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ecc)
@@ -674,7 +542,7 @@ module TidalLoveNumbers
         
         for i in 2:nlayers
             Bprod = zeros(precc, 8, 8, nsublayers-1)
-            get_B_product2!(Bprod, r[:,i], ρ[i], g[:,i], μ[i], K[i], ω, ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i])
+            get_B_product!(Bprod, r[:,i], ρ[i], g[:,i], μ[i], K[i], ω, ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i])
 
             # Modify starting vector if the layer is porous
             # If a new porous layer (i.e., sitting on a non-porous layer)
@@ -741,7 +609,7 @@ module TidalLoveNumbers
         
         for i in 2:nlayers
             Bprod = zeros(precc, 6, 6, nsublayers-1)
-            get_B_product2!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i], ω=ω)
+            get_B_product!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i], ω=ω)
 
             for j in 1:nsublayers-1
                 y1_4[:,:,j,i] = Bprod[:,:,j] * y_start #y1_4[:,:,1,i]
