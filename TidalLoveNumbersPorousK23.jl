@@ -32,6 +32,7 @@ module TidalLoveNumbers
     export get_displacement, get_darcy_velocity, get_solution
     export get_total_heating, get_heating_profile
     export define_spherical_grid
+    export get_radial_isotropic_coeffs
 
     prec = Float64 #BigFloat
     precc = ComplexF64 #Complex{BigFloat}
@@ -48,7 +49,7 @@ module TidalLoveNumbers
     porous = false
 
     M = 6 + 2porous         # Matrix size: 6x6 if only solid material, 8x8 for two-phases
-    nr = 3000           # Number of sub-layers in each layer (TODO: change to an array)
+    nr = 3000               # Number of sub-layers in each layer (TODO: change to an array)
 
     TM8 = MArray{Tuple{8, 8}, precc}
     TM6 = MArray{Tuple{6, 6}, precc}
@@ -905,9 +906,9 @@ module TidalLoveNumbers
         @views Z    = TidalLoveNumbers.Z[i,:,:]
         @views X    = TidalLoveNumbers.X[i,:,:]
 
-        A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
-        dy1dr = dot(A[1,:], y[:])
-        dy2dr = dot(A[2,:], y[:])
+        # A = get_A(rr, ρr, gr, μr, Ksr, ω, ρlr, Klr, Kdr, αr, ηlr, ϕr, kr)
+        # dy1dr = dot(A[1,:], y[:])
+        # dy2dr = dot(A[2,:], y[:])
 
         y1 = y[1]
         y2 = y[2]
@@ -1096,5 +1097,45 @@ module TidalLoveNumbers
         p[:,:] = Y * y7 
     end
 
+    # Compute the spherical harmonic coeffs for isotropic components vs radius
+    function get_radial_isotropic_coeffs(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k)
+        ϵsV = zeros(ComplexF64, size(r)[1]-1, size(r)[2])
+        ϵrelV = zero(ϵsV) 
+        pl = zero(ϵsV)
+
+        y1 = y[1,:,:]
+        y2 = y[2,:,:]
+        y3 = y[3,:,:]   
+        y4 = y[4,:,:]
+        y7 = y[7,:,:]
+
+        for i in 2:size(r)[2] # Loop over layers
+            ρr = ρ[i]
+            Ksr = Ks[i]
+            μr = μ[i]
+            αr = α[i]
+            ϕr = ϕ[i]
+            λr = Ksr .- 2μr/3
+            βr = λr + 2μr
+            S = ϕr / Kl[i] + (αr - ϕr) / Ks[i]      # Storativity 
+
+            for j in 1:size(r)[1]-1 # Loop over sublayers 
+                rr = r[j,i]
+                gr = g[j,i]
+
+                # Compute strain tensor
+                ϵsV[j,i] = (4μr*y1[j,i] + rr*y3[j,i] - 2n*(n+1)*μr*y2[j,i] + αr*rr*y7[j,i])/(βr*rr) 
+                ϵrelV[j,i] = - αr/ϕr * (ϵsV[j,i] + y7[j,i]/αr * S )
+                pl[j,i]   = y7[j,i]
+            end
+        end
+
+        return ϵsV, ϵrelV, pl
+
+    end
+
+    function get_rms_quantities()
+
+    end
 
 end
