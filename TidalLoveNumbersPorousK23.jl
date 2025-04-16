@@ -33,6 +33,7 @@ module TidalLoveNumbers
     export get_total_heating, get_heating_profile
     export define_spherical_grid
     export get_radial_isotropic_coeffs
+    export get_ke_power
 
     prec = Float64 #BigFloat
     precc = ComplexF64 #Complex{BigFloat}
@@ -111,49 +112,81 @@ module TidalLoveNumbers
         return g
     end
 
-    function get_A(r, ρ, g, μ, K; ω=0.0)
+    function get_A(r, ρ, g, μ, K)
         A = zeros(precc, 6, 6) 
-        get_A!(A, r, ρ, g, μ, K, ω=ω)
+        get_A!(A, r, ρ, g, μ, K)
         return A
     end
 
-    function get_A!(A::Matrix, r, ρ, g, μ, K, λ=nothing; ω=0.0)
+    function get_A!(A::Matrix, r, ρ, g, μ, K, λ=nothing)
         if isnothing(λ)
             λ = K - 2μ/3
         end
 
         r_inv = 1.0/r
         β_inv = 1.0/(2μ + λ)
-        rβ_inv = r_inv * β_inv
 
-        A[1,1] = -2λ * rβ_inv
+        A[1,1] = -2λ * β_inv * r_inv
         A[2,1] = -r_inv
-        A[3,1] = 4r_inv * (3K*μ*rβ_inv - ρ*g)       - ω^2 * ρ# 
-        A[4,1] = -r_inv * (6K*μ*rβ_inv - ρ*g )
-        A[5,1] = 4π * G * ρ
-        A[6,1] = 4π*(n+1)*G*ρ*r_inv
+        A[3,1] = 4r_inv * (3K*μ*r_inv*β_inv - ρ*g)
+        A[4,1] = -r_inv * (6K*μ*r_inv*β_inv - ρ*g )
+        A[5,1] = -4π * G * ρ
+        A[6,1] = -4π*(n+1)*G*ρ*r_inv
 
-        A[1,2] = n*(n+1) * λ * rβ_inv
+        A[1,2] = n*(n+1) * λ * β_inv * r_inv
         A[2,2] = r_inv
-        A[3,2] = -n*(n+1)*r_inv * (6K*μ*rβ_inv - ρ*g ) 
-        A[4,2] = 2μ*r_inv^2 * (2*n*(n+1)*(λ + μ)*β_inv - 1.0 )    - ω^2 * ρ
-        A[6,2] = -4π*n*(n+1)*G*ρ*r_inv
-
-        A[1,3] = β_inv
-        A[3,3] = rβ_inv * (-4μ )
-        A[4,3] = -λ * rβ_inv
+        A[3,2] = -n*(n+1)*r_inv * (6K*μ*r_inv*β_inv - ρ*g ) #+
+        A[4,2] = 2μ*r_inv^2 * (n*(n+1)*(1 + λ*β_inv) - 1.0 )
+        A[6,2] = -A[6,1]*n
         
+        A[1,3] = β_inv
+        A[3,3] = β_inv * (-4μ*r_inv )
+        A[4,3] = -r_inv * λ * β_inv # changed to match sabadini    
+
         A[2,4] = 1.0 / μ
         A[3,4] = n*(n+1)*r_inv
         A[4,4] = -3r_inv
 
-        A[3,5] = ρ * (n+1)*r_inv
-        A[4,5] = -ρ*r_inv
+        A[3,5] = -ρ * (n+1)*r_inv
+        A[4,5] = ρ*r_inv
         A[5,5] = -(n+1)r_inv
-
-        A[3,6] = -ρ
+        
+        A[3,6] = ρ
         A[5,6] = 1.0
         A[6,6] = (n-1)r_inv
+
+        # r_inv = 1.0/r
+        # β_inv = 1.0/(2μ + λ)
+        # rβ_inv = r_inv * β_inv
+
+        # A[1,1] = -2λ * rβ_inv
+        # A[2,1] = -r_inv
+        # A[3,1] = 4r_inv * (3K*μ*rβ_inv - ρ*g)      # - ω^2 * ρ# 
+        # A[4,1] = -r_inv * (6K*μ*rβ_inv - ρ*g )
+        # A[5,1] = 4π * G * ρ
+        # A[6,1] = 4π*(n+1)*G*ρ*r_inv
+
+        # A[1,2] = n*(n+1) * λ * rβ_inv
+        # A[2,2] = r_inv
+        # A[3,2] = -n*(n+1)*r_inv * (6K*μ*rβ_inv - ρ*g ) 
+        # A[4,2] = 2μ*r_inv^2 * (2*n*(n+1)*(λ + μ)*β_inv - 1.0 )   # - ω^2 * ρ
+        # A[6,2] = -4π*n*(n+1)*G*ρ*r_inv
+
+        # A[1,3] = β_inv
+        # A[3,3] = rβ_inv * (-4μ )
+        # A[4,3] = -λ * rβ_inv
+        
+        # A[2,4] = 1.0 / μ
+        # A[3,4] = n*(n+1)*r_inv
+        # A[4,4] = -3r_inv
+
+        # A[3,5] = ρ * (n+1)*r_inv
+        # A[4,5] = -ρ*r_inv
+        # A[5,5] = -(n+1)r_inv
+
+        # A[3,6] = -ρ
+        # A[5,6] = 1.0
+        # A[6,6] = (n-1)r_inv
 
     end
 
@@ -253,43 +286,54 @@ module TidalLoveNumbers
         return B
     end
 
-    function get_B!(B, r1, r2, g1, g2, ρ, μ, K; ω=0.0)
+    function get_B!(B, r1, r2, g1, g2, ρ, μ, K)
         dr = r2 - r1
         rhalf = r1 + 0.5dr
         
         ghalf = g1 + 0.5*(g2 - g1)
 
-        get_A!(Abot, r1, ρ, g1, μ, K, ω=ω)
-        get_A!(Amid, rhalf, ρ, ghalf, μ, K, ω=ω)
-        get_A!(Atop, r2, ρ, g2, μ, K, ω=ω)
+        A1 = get_A(r1, ρ, g1, μ, K)
+        Ahalf = get_A(rhalf, ρ, ghalf, μ, K)
+        A2 = get_A(r2, ρ, g2, μ, K)
         
-        k16 .= dr * Abot 
-        k26 .= dr * Amid * (I + 0.5k16)
-        k36 .= dr * Amid * (I + 0.5k26)
-        k46 .= dr * Atop * (I + k36) 
+        k1 = dr * A1 
+        k2 = dr * Ahalf * (I + 0.5k1)
+        k3 = dr * Ahalf * (I + 0.5k2)
+        k4 = dr * A2 * (I + k3) 
 
-        # k6[1] .= dr * Abot 
-        # k6[2] .= dr * Amid * (I + 0.5k6[1])
-        # k6[3] .= dr * Amid * (I + 0.5k6[2])
-        # k6[4] .= dr * Atop * (I + k6[3]) 
+        B[1:6,1:6] .= (I + 1.0/6.0 * (k1 + 2k2 + 2k3 + k4))
 
-        # Abot[:] .= zero(Abot[1])
-        # Atop[:] .= zero(Atop[1])
-        # Amid[:] .= zero(Amid[1])
-
-        # # display(Abot[1:6,1:6])
         # get_A!(Abot, r1, ρ, g1, μ, K)
         # get_A!(Amid, rhalf, ρ, ghalf, μ, K)
         # get_A!(Atop, r2, ρ, g2, μ, K)
+        
+        # k1 = dr * Abot 
+        # k2 = dr * Amid * (I + 0.5k1)
+        # k3 = dr * Amid * (I + 0.5k2)
+        # k4 = dr * Atop * (I + k3) 
 
-        # k16 = dr * Abot[1:6,1:6] 
-        # k26 = dr * Amid[1:6,1:6] * (I + 0.5k16)
-        # k36 = dr * Amid[1:6,1:6] * (I + 0.5k26)
-        # k46 = dr * Atop[1:6,1:6] * (I + k36) 
+        # # k6[1] .= dr * Abot 
+        # # k6[2] .= dr * Amid * (I + 0.5k6[1])
+        # # k6[3] .= dr * Amid * (I + 0.5k6[2])
+        # # k6[4] .= dr * Atop * (I + k6[3]) 
+
+        # # Abot[:] .= zero(Abot[1])
+        # # Atop[:] .= zero(Atop[1])
+        # # Amid[:] .= zero(Amid[1])
+
+        # # # display(Abot[1:6,1:6])
+        # # get_A!(Abot, r1, ρ, g1, μ, K)
+        # # get_A!(Amid, rhalf, ρ, ghalf, μ, K)
+        # # get_A!(Atop, r2, ρ, g2, μ, K)
+
+        # # k16 = dr * Abot[1:6,1:6] 
+        # # k26 = dr * Amid[1:6,1:6] * (I + 0.5k16)
+        # # k36 = dr * Amid[1:6,1:6] * (I + 0.5k26)
+        # # k46 = dr * Atop[1:6,1:6] * (I + k36) 
 
 
-        # B[1:6,1:6] .= (I + 1.0/6.0 .* (k6[1] .+ 2*(k6[2] .+ k6[3]) .+ k6[4]))
-        B[1:6,1:6] .= (I + 1.0/6.0 .* (k16 .+ 2*(k26 .+ k36) .+ k46))
+        # # B[1:6,1:6] .= (I + 1.0/6.0 .* (k6[1] .+ 2*(k6[2] .+ k6[3]) .+ k6[4]))
+        # B[1:6,1:6] .= (I + 1.0/6.0 .* (k1 .+ 2*(k2 .+ k3) .+ k4))
 
     end
 
@@ -333,7 +377,7 @@ module TidalLoveNumbers
     end
 
     # first method: solid layer -- for a specific layer?
-    function get_B_product!(Bprod2, r, ρ, g, μ, K; ω=0.0)
+    function get_B_product!(Bprod2, r, ρ, g, μ, K)
         # Check dimensions of Bprod2
 
         Bstart = zeros(precc, 6, 6)
@@ -351,8 +395,8 @@ module TidalLoveNumbers
             g1 = g[j]
             g2 = g[j+1]
 
-            get_B!(B, r1, r2, g1, g2, ρ, μ, K, ω=ω)
-            Bprod2[:,:,j] .= B * (j==1 ? Bstart : @view(Bprod2[:,:,j-1]))
+            get_B!(B, r1, r2, g1, g2, ρ, μ, K)
+            Bprod2[:,:,j] .= B * (j==1 ? Bstart : Bprod2[:,:,j-1])
             # @inline Bprod2[:,:,j] .= get_B(r1, r2, g1, g2, ρ, μ, K) * (j==1 ? Bstart : @view(Bprod2[:,:,j-1]))
 
             r1 = r2
@@ -422,6 +466,7 @@ module TidalLoveNumbers
     function get_solution(y, r, ρ, g, μ, K, ω, ecc)
         R = r[end,end]
 
+
         disp = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
         ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
         σ = zero(ϵ)
@@ -458,7 +503,40 @@ module TidalLoveNumbers
             σs .+= forcing[x]*σ
         end
 
-        return disp, ϵs, σs
+        return disps, ϵs, σs
+    end
+
+    function get_solution(y, n, m, r, ρ, g, μ, K, ω, ecc)
+        R = r[end,end]
+
+        disp = zeros(ComplexF64, length(clats), length(lons), 3, size(r)[1]-1, size(r)[2])
+        ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
+        σ = zero(ϵ)
+
+        n = 2
+        ms = [-2, 0, 2]
+        forcing = [-1/8, -3/2, 7/8] * ω^2*R^2*ecc 
+
+        for i in 2:size(r)[2] # Loop of layers
+            ρr = ρ[i]
+            Kr = K[i]
+            μr = μ[i]
+
+            for j in 1:size(r)[1]-1 # Loop over sublayers 
+                yrr = ComplexF64.(y[:,j,i])
+                (y1, y2, y3, y4, y5, y6) = yrr
+
+                rr = r[j,i]
+                gr = g[j,i]
+
+                compute_displacement!(@view(disp[:,:,:,j,i]), yrr, m)
+                compute_strain_ten!(@view(ϵ[:,:,:,j,i]), yrr, m, rr, ρr, gr, μr, Kr)
+                compute_stress_ten!(@view(σ[:,:,:,j,i]), @view(ϵ[:,:,:,j,i]), yrr, m, rr, ρr, gr, μr, Kr)
+
+            end
+        end
+
+        return disp, ϵ, σ
     end
 
     function compute_y(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, core="liquid")
@@ -530,24 +608,21 @@ module TidalLoveNumbers
         return y
     end
 
-    function compute_y(r, ρ, g, μ, K, core="liquid"; ω=0.0)
-
+    function compute_y(r, ρ, g, μ, K; core="liquid")
         nlayers = size(r)[2]
         nsublayers = size(r)[1]
 
         y_start = get_Ic(r[end,1], ρ[1], g[end,1], μ[1], core, 6, 3)
 
-        y1_4 = zeros(precc, 6, 3, size(r)[1]-1, size(r)[2]) # Three linearly independent y solutions
-        y = zeros(ComplexF64, 6, size(r)[1]-1, size(r)[2])
-
-        # y_start[:,:] .= Ic[:,:]
+        y1_4 = zeros(precc, 6, 3, nsublayers-1, nlayers) # Three linearly independent y solutions
+        y = zeros(ComplexF64, 6, nsublayers-1, nlayers)
         
         for i in 2:nlayers
             Bprod = zeros(precc, 6, 6, nsublayers-1)
-            get_B_product!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i], ω=ω)
+            get_B_product!(Bprod, r[:, i], ρ[i], g[:, i], μ[i], K[i])
 
             for j in 1:nsublayers-1
-                y1_4[:,:,j,i] = Bprod[:,:,j] * y_start #y1_4[:,:,1,i]
+                y1_4[:,:,j,i] = Bprod[:,:,j] * y_start 
             end
 
             y_start[:,:] .= y1_4[:,:,end,i]   # Set starting vector for next layer
@@ -651,18 +726,14 @@ module TidalLoveNumbers
 
         ϵ = zeros(ComplexF64, length(clats), length(lons), 6, size(r)[1]-1, size(r)[2])
         ϵs = zero(ϵ)
+        σ = zero(ϵ)
+        σs = zero(ϵ)
 
         n = 2
         ms = [-2, 0, 2]
         forcing = [-1/8, -3/2, 7/8] * ω^2*R^2*ecc 
-        for x in 1:length(ms)
+        for x in 2:length(ms)
             m = ms[x]
-
-            @views Y    = TidalLoveNumbers.Y[x,:,:]
-            @views dYdθ = TidalLoveNumbers.dYdθ[x,:,:]
-            @views dYdϕ = TidalLoveNumbers.dYdϕ[x,:,:]
-            @views Z    = TidalLoveNumbers.Z[x,:,:]
-            @views X    = TidalLoveNumbers.X[x,:,:]
 
             for i in 2:size(r)[2] # Loop of layers
                 ρr = ρ[i]
@@ -671,18 +742,25 @@ module TidalLoveNumbers
                 λr = λ[i]
 
                 for j in 1:size(r)[1]-1 # Loop over sublayers 
-                    yrr = conj.(y[1:6,j,i])
-                    (y1, y2, y3, y4, y5, y6) = yrr
+                    yrr = y[1:6,j,i]
                     
                     rr = r[j,i]
                     gr = g[j,i]
 
-                    compute_strain_ten!(@view(ϵ[:,:,:,j,i]), yrr, m, rr, ρr, gr, μr, κr)
+                    compute_strain_ten!(@view(ϵ[:,:,:,j,i]), yrr, abs(m), rr, ρr, gr, μr, κr)
+                    # compute_stress_ten!(@view(σ[:,:,:,j,i]),@view(ϵ[:,:,:,j,i]), yrr, abs(m), rr, ρr, gr, μr, κr)
 
                 end
             end
 
-            ϵs .+= forcing[x]*ϵ
+            if m==2
+                ϵs .+= forcing[1]*conj.(ϵ) .+ forcing[3]*ϵ
+                # σs .+= forcing[1]*conj.(σ) .+ forcing[3]*σ
+            else
+                ϵs .+= forcing[2]*ϵ
+                # σs .+= forcing[2]*σ
+            end
+            # ϵs .+= forcing[x]*ϵ
         end
 
         Eμ = zeros(  (size(ϵ)[1], size(ϵ)[2], size(ϵ)[4], size(ϵ)[5]) )
@@ -693,6 +771,8 @@ module TidalLoveNumbers
         Eκ_layer_sph_avg = zero( Eμ_layer_sph_avg )
         Eκ_layer_sph_avg_rr = zero( Eμ_layer_sph_avg_rr )
 
+        Eμ_total = 0.0
+
         for j in 2:size(r)[2]   # loop from CMB to surface
             layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
 
@@ -702,21 +782,36 @@ module TidalLoveNumbers
                 dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
                 Eμ[:,:,i, j] = sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
-                Eμ[:,:,i, j] .*= ω * imag(μ[j])
+                Eμ[:,:,i, j] .*= ω/2 * imag(μ[j])
+
+                Eμ_vol = imag(μ[j]) * ω * (sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3) .- 1/3 .* abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2)
     
-                Eκ[:,:,i, j] = ω/2 *imag(κ[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
+
+                Eμ_total += sum(sin.(clats) .* (Eμ_vol * dr)  * dres^2 * r[i,j]^2.0)
+                # Eκ[:,:,i, j] = ω/2 *imag(κ[j]) * abs.(sum(ϵs[:,:,1:3,i,j], dims=3)).^2
     
+                # Eμ[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
+                # Eμ[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
+                # Eμ[:,:,i, j] .*= -0.25ω * 0.5
+
+                # # Integrate across r to find dissipated energy per unit area
+                # Eₛ_area[:,:] .+= Eμ[:,:, i, j] * dr
+
+                # Eμ_layer_sph_avg[j] += sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
+
                 # Integrate across r to find dissipated energy per unit area
                 Eμ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eμ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
                 Eμ_layer_sph_avg[j] += Eμ_layer_sph_avg_rr[i,j]*dvol
     
-                Eκ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eκ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
-                Eκ_layer_sph_avg[j] += Eκ_layer_sph_avg_rr[i,j]*dvol
+                # Eκ_layer_sph_avg_rr[i,j] = sum(sin.(clats) .* (Eκ[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr / dvol
+                # Eκ_layer_sph_avg[j] += Eκ_layer_sph_avg_rr[i,j]*dvol
             end
 
-            Eμ_layer_sph_avg[j] /= layer_volume
-            Eκ_layer_sph_avg[j] /= layer_volume
+            Eμ_layer_sph_avg[j] #/= layer_volume
+            Eκ_layer_sph_avg[j] #/= layer_volume
         end
+
+        println(Eμ_total)
 
         return (Eμ_layer_sph_avg, Eμ_layer_sph_avg_rr), 
                 (Eκ_layer_sph_avg, Eκ_layer_sph_avg_rr) 
@@ -865,7 +960,8 @@ module TidalLoveNumbers
         ms = [-2, 0, 2]
         for i in 1:length(ms)
             m = ms[i]
-            TidalLoveNumbers.Y[i,:,:] .= m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+            # TidalLoveNumbers.Y[i,:,:] .= m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+            TidalLoveNumbers.Y[i,:,:] .= Ynm(n,abs(m),clats,lons)
 
             if iszero(abs(m))
                 TidalLoveNumbers.dYdθ[i,:,:] = -1.5sin.(2clats) * exp.(1im * m * lons)
@@ -961,6 +1057,7 @@ module TidalLoveNumbers
     end
 
     function compute_strain_ten!(ϵ, y, m, rr, ρr, gr, μr, Ksr)
+        n = 2.0
         if m == -2
             i=1
         elseif m == 0
@@ -977,9 +1074,9 @@ module TidalLoveNumbers
         @views Z    = TidalLoveNumbers.Z[i,:,:]
         @views X    = TidalLoveNumbers.X[i,:,:]
 
-        # A = get_A(rr, ρr, gr, μr, Ksr)
-        # dy1dr = dot(A[1,:], y[:])
-        # dy2dr = dot(A[2,:], y[:])
+        A = get_A(rr, ρr, gr, μr, Ksr)
+        dy1dr = dot(A[1,:], y[:])
+        dy2dr = dot(A[2,:], y[:])
 
         y1 = y[1]
         y2 = y[2]
@@ -990,17 +1087,19 @@ module TidalLoveNumbers
         βr = λr + 2μr
 
         # Compute strain tensor
-        ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3)/(βr*rr)  * Y
+        # ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3)/(βr*rr)  * Y
+        ϵ[:,:,1] = dy1dr * Y
         ϵ[:,:,2] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
         ϵ[:,:,3] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
-        # ϵ[:,:,4] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
-        # ϵ[:,:,5] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
-        ϵ[:,:,4] = 0.5/μr * y4 * dYdθ        
-        ϵ[:,:,5] = 0.5/μr * y4 * dYdϕ .* 1.0 ./ sin.(clats) 
+        ϵ[:,:,4] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdθ
+        ϵ[:,:,5] = 0.5 * (dy2dr + (y1 - y2)/rr) .* dYdϕ .* 1.0 ./ sin.(clats) 
+        # ϵ[:,:,4] = 0.5/μr * y4 * dYdθ        
+        # ϵ[:,:,5] = 0.5/μr * y4 * dYdϕ .* 1.0 ./ sin.(clats) 
         ϵ[:,:,6] = 0.5 * y2/rr * Z
     end
 
     function compute_stress_ten!(σ, ϵ, y, m, rr, ρr, gr, μr, κsr)
+        n = 2
         if m == -2
             i=1
         elseif m == 0
@@ -1018,7 +1117,13 @@ module TidalLoveNumbers
 
         λr = κsr .- 2μr/3
 
-        ϵV = sum(ϵ[:,:,1:3], dims=3)   # trace of strain ten
+        # ϵV = sum(ϵ[:,:,1:3], dims=3)   # trace of strain ten
+
+        A = get_A(rr, ρr, gr, μr, κsr)
+        dy1dr = dot(A[1,:], y[:])
+        dy2dr = dot(A[2,:], y[:])
+
+        ϵV = dy1dr .+ 2/rr * y1 .- n*(n+1)/rr * y2
         F = (λr * ϵV) .* Y
         σ[:,:,1] .= F .+ 2μr*ϵ[:,:,1]  
         σ[:,:,2] .= F .+ 2μr*ϵ[:,:,2] 
@@ -1134,8 +1239,18 @@ module TidalLoveNumbers
 
     end
 
-    function get_rms_quantities()
+    function get_ke_power(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k)
+        n = 2
+        y1 = y[1]
+        y5 = y[5]   
+        y7 = y[7]
+        y8 = y[8]
 
+        # println(y1, " ", y5, " ", y7, " ", y8)
+
+        y9 = 1im * k ./ (ω*ϕ*ηl*r) .* (ρl*g*y1 .- ρl * y5 .+ ρl*g .* y8 .+ y7)
+
+        return y8, y9, abs.(y8).^2 .+ n*(n+1)*abs.(y9).^2  
     end
 
 end
