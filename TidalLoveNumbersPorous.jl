@@ -16,7 +16,7 @@
 # ω: rotation rate
 
 
-module TidalLoveNumbers
+module TidalLoveNumbersRN22
 
     using LinearAlgebra
     using DoubleFloats

@@ -21,7 +21,7 @@ module TidalLoveNumbers
     export get_g, get_A!, get_A, get_B_product, get_Ic, get_B
     export expand_layers, set_G, calculate_y
     export get_displacement, get_solution
-    export get_bulk_heating, get_heating_profile
+    export get_bulk_heating, get_heating_profile, get_total_heating
 
     # If results seem odd, you can increase the numerical precision with
     # one of the options below. These get quite a bit slower...
@@ -84,32 +84,32 @@ module TidalLoveNumbers
         β_inv = 1.0/(2μ + λ)
 
         A[1,1] = -2λ * β_inv * r_inv
-        A[1,2] = n*(n+1) * λ * β_inv * r_inv
-        A[1,3] = β_inv
-
         A[2,1] = -r_inv
-        A[2,2] = r_inv
-        A[2,4] = 1.0 / μ
-
         A[3,1] = 4r_inv * (3κ*μ*r_inv*β_inv - ρ*g)
-        A[3,2] = -n*(n+1)*r_inv * (6κ*μ*r_inv*β_inv - ρ*g ) #+
-        A[3,3] = β_inv * (-4μ*r_inv )
-        A[3,4] = n*(n+1)*r_inv
-        A[3,5] = -ρ * (n+1)*r_inv
-        A[3,6] = ρ
-
         A[4,1] = -r_inv * (6κ*μ*r_inv*β_inv - ρ*g )
-        A[4,2] = 2μ*r_inv^2 * (n*(n+1)*(1 + λ*β_inv) - 1.0 )
-        A[4,3] = -r_inv * λ * β_inv # changed to match sabadini    
-        A[4,4] = -3r_inv
-        A[4,5] = ρ*r_inv
-
         A[5,1] = -4π * G * ρ
-        A[5,5] = -(n+1)r_inv
-        A[5,6] = 1.0
-
         A[6,1] = -4π*(n+1)*G*ρ*r_inv
+
+        A[1,2] = n*(n+1) * λ * β_inv * r_inv
+        A[2,2] = r_inv
+        A[3,2] = -n*(n+1)*r_inv * (6κ*μ*r_inv*β_inv - ρ*g ) #+
+        A[4,2] = 2μ*r_inv^2 * (n*(n+1)*(1 + λ*β_inv) - 1.0 )
         A[6,2] = -A[6,1]*n
+        
+        A[1,3] = β_inv
+        A[3,3] = β_inv * (-4μ*r_inv )
+        A[4,3] = -r_inv * λ * β_inv # changed to match sabadini    
+
+        A[2,4] = 1.0 / μ
+        A[3,4] = n*(n+1)*r_inv
+        A[4,4] = -3r_inv
+
+        A[3,5] = -ρ * (n+1)*r_inv
+        A[4,5] = ρ*r_inv
+        A[5,5] = -(n+1)r_inv
+        
+        A[3,6] = ρ
+        A[5,6] = 1.0
         A[6,6] = (n-1)r_inv
 
     end
@@ -386,7 +386,7 @@ module TidalLoveNumbers
                 rr = r[j,i]
                 gr = g[j,i]
                 
-                disp[:,:,:,j,i]   .= get_displacement(y1, y2, Y, S)
+                # disp[:,:,:,j,i]   .= get_displacement(y1, y2, Y, S)
 
                 A = get_A(rr, ρr, gr, μr, κr)
                 dy1dr = dot(A[1,:], y[:,j,i])
@@ -438,8 +438,9 @@ module TidalLoveNumbers
 
         # Better way to do this? (Analytical expression?)
         n = 2
-        for m in [-2, 2, 0]
-            Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+        for m in [2, 0]
+            # Y = m < 0 ? Ynmc(n,abs(m),clats,lons) : Ynm(n,abs(m),clats,lons)
+            Y = Ynm(n,abs(m),clats,lons)
             S = m < 0 ? Snmc(n,abs(m),clats,lons) : Snm(n,abs(m),clats,lons)    
 
             if iszero(abs(m))
@@ -464,7 +465,7 @@ module TidalLoveNumbers
                 λr = λ[i]
 
                 for j in 1:size(r)[1]-1 # Loop over sublayers 
-                    (y1, y2, y3, y4, y5, y6) = conj.(y[:,j,i])
+                    (y1, y2, y3, y4, y5, y6) = y[:,j,i]
                     
                     rr = r[j,i]
                     gr = g[j,i]
@@ -492,12 +493,23 @@ module TidalLoveNumbers
                 end
             end
 
-            if m==-2
-                ϵs .+= U22W*ϵ
-                σs .+= U22W*σ
-            elseif m==2
-                ϵs .+= U22E*ϵ
-                σs .+= U22E*σ
+            # if m==-2
+            #     ϵs .+= U22W*conj.(ϵ)
+            #     σs .+= U22W*conj.(σ)
+            # elseif m==2
+            #     ϵs .+= U22E*ϵ
+            #     σs .+= U22E*σ
+            # else
+            #     ϵs .+= U20*ϵ
+            #     σs .+= U20*σ
+            # end
+
+            if m==2
+                ϵs .+= U22W*conj.(ϵ) .+ U22E*ϵ
+                σs .+= U22W*conj.(σ) .+ U22E*σ
+            # elseif m==2
+            #     ϵs .+= U22E*ϵ
+            #     σs .+= U22E*σ
             else
                 ϵs .+= U20*ϵ
                 σs .+= U20*σ
@@ -507,7 +519,7 @@ module TidalLoveNumbers
         Eₛ_vol = zeros(  (size(σ)[1], size(σ)[2], size(σ)[4], size(σ)[5]) )
         Eₛ_vol_layer_sph_avg = zeros(  (size(r)[2]) )
         Eₛ_total = 0.0
-
+        # println(size(r))
         for j in 2:size(r)[2]   # loop from CMB to surface
             layer_volume = 4π/3 * (r[end,j]^3 - r[1,j]^3)
 
@@ -517,21 +529,27 @@ module TidalLoveNumbers
                 dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
                 # Dissipated energy per unit volume
-                Eₛ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
-                Eₛ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
-                Eₛ_vol[:,:,i, j] .*= -0.25ω
+                # Eₛ_vol[:,:,i, j] =  ( sum(σs[:,:,1:3,i,j] .* conj.(ϵs[:,:,1:3,i,j]), dims=3) .- sum(conj.(σs[:,:,1:3,i,j]) .* ϵs[:,:,1:3,i,j], dims=3) ) * 1im 
+                # Eₛ_vol[:,:,i, j] += 2( sum(σs[:,:,4:6,i,j] .* conj.(ϵs[:,:,4:6,i,j]), dims=3) .- sum(conj.(σs[:,:,4:6,i,j]) .* ϵs[:,:,4:6,i,j], dims=3) ) * 1im 
+                # Eₛ_vol[:,:,i, j] .*= -0.25ω
 
+                Eₛ_vol = imag(μ[j]) * ω * (sum(abs.(ϵs[:,:,1:3,i,j]).^2, dims=3) .+ 2sum(abs.(ϵs[:,:,4:6,i,j]).^2, dims=3))
+
+                # println(i, " ", j, " ", Eₛ_vol)
                 # # Integrate across r to find dissipated energy per unit area
                 # Eₛ_area[:,:] .+= Eₛ_vol[:,:, i, j] * dr
 
-                Eₛ_vol_layer_sph_avg[j] += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j])  * dres^2) * r[i,j]^2.0 * dr
+                Eₛ_vol_layer_sph_avg[j] += sum(sin.(clats) .* (Eₛ_vol* dr)  * dres^2 * r[i,j]^2.0 ) #*dvol
                 # Eₛ_total += sum(sin.(clats) .* (Eₛ_vol[:,:,i,j] * dr)  * dres^2 * r[i,j]^2.0) 
+                Eₛ_total += sum(sin.(clats) .* (Eₛ_vol * dr)  * dres^2 * r[i,j]^2.0)    # Integrate of volume
+
+                # println(i, " ", j, " ", Eₛ_total, " ", dr)
             end
 
-            Eₛ_vol_layer_sph_avg[j] /= layer_volume
+            Eₛ_vol_layer_sph_avg[j] #/= layer_volume
         end
 
-        return Eₛ_vol_layer_sph_avg
+        return Eₛ_vol_layer_sph_avg, ϵs, σs
     end
 
     function get_Ic(r, ρ, g, μ, type, M=6, N=3)

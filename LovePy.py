@@ -259,10 +259,10 @@ def CalcLoveNumbers(radii, density, mu, visc, rot):
 
 if __name__=='__main__':
 
-    den = np.array([3e3,3e3])
-    r = np.array([2500e3, 1e3])
-    mu = np.array([3e9,3e9])
-    visc = np.array([1e30,1e30])
+    den = np.array([3e3, 3e3,3e3])
+    r = np.array([2501e3, 2500e3, 1e3])
+    mu = np.array([1e30, 3e9,3e9]) * 1e-9
+    visc = np.array([1e30, 1e30,1e30])
     rot = 2e-7
     print(CalcLoveNumbers(r, den, mu, visc, rot))
     print("hi")
