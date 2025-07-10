@@ -12,7 +12,7 @@ In the `examples/PoroviscoelasticTides` directory, begin a Jupyter sever
    jupyter notebook PoroviscoelasticTidesIo.ipynb
    ```
 or 
-    ```sh
+   ```sh
    jupyter execute PoroviscoelasticTidesIo.ipynb
    ```
 Alternatively, use VisualStudio Code
