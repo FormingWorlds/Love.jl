@@ -1,6 +1,6 @@
-## Poroviscoelastic tidal heating of Io
+## Poro-viscoelastic tidal heating of Io
 
-This example reproduces all figures in the manuscript _Poroviscoelastic tidal heating of Io_, by Hay, Hewitt, Rovira-Navarro, and Katz.
+This example reproduces all figures in the manuscript _Poro-viscoelastic tidal heating of Io_, by Hay, Hewitt, Rovira-Navarro, and Katz.
 
 <!-- USAGE EXAMPLES -->
 ## Usage
