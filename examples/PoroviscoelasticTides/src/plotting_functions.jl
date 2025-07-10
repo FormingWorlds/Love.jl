@@ -69,7 +69,7 @@ function plot_darcy_dissipation(filename="./../data/data_ED.jld")
 
     norm = mpl.colors.Normalize(vmin=log10(M_prof[1]), vmax=log10(M_prof[end]))
     sm = PyPlot.cm.ScalarMappable(cmap=cmap2, norm=norm)
-    colorbar(sm, shrink=0.8, label="log\$_{\\mathregular{10}} (\$Mobility, \$M_\\phi\$ [m\$^\\mathregular{2}\$ Pa\$^{\\mathregular{-1}}\$ s\$^{\\mathregular{-1}}\$ ]) ")
+    colorbar(sm, ax=ax2, shrink=0.8, label="log\$_{\\mathregular{10}} (\$Mobility, \$M_\\phi\$ [m\$^\\mathregular{2}\$ Pa\$^{\\mathregular{-1}}\$ s\$^{\\mathregular{-1}}\$ ]) ")
 
     subplots_adjust(wspace=0.25)
 
@@ -153,16 +153,6 @@ function plot_compaction_dissipation(filename="./../data/data_EC.jld")
     ax2.grid(which="both", alpha=0.5, linewidth=0.5)
     ax2.set_title("\$\\kappa_l\$ = 1 GPa, \$\\alpha = \\mathregular{0.01}\$", fontsize=12)
 
-    # # TODO - make a function to do this step
-    # tick_loc = [1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22]
-    # ax1.xaxis.set_major_locator(mpl.ticker.FixedLocator(tick_loc)) 
-    # ax1.set_xticklabels(["10\$^{\\mathregular{$(i)}}\$" for i in 13:1:22])
-
-    # tick_loc = [1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14]
-    # ax1.yaxis.set_major_locator(mpl.ticker.FixedLocator(tick_loc)) 
-    # ax1.set_yticklabels(["10\$^{\\mathregular{$(i)}}\$" for i in 3:1:14])
-
-
     make_log_ticks_pretty(ax1, 3:1:14, "y")
     make_log_ticks_pretty(ax1, 13:1:22, "x")
 
@@ -172,7 +162,7 @@ function plot_compaction_dissipation(filename="./../data/data_EC.jld")
 
     norm = mpl.colors.Normalize(vmin=log10(ζx[1]), vmax=log10(ζx[end]))
     sm = PyPlot.cm.ScalarMappable(cmap=cmap2, norm=norm)
-    colorbar(sm, shrink=0.8, label="log\$_{\\mathregular{10}} (\$Compaction viscosity, \$\\zeta\$ [Pa s]) ")
+    colorbar(sm, ax=ax2, shrink=0.8, label="log\$_{\\mathregular{10}} (\$Compaction viscosity, \$\\zeta\$ [Pa s]) ")
 
     subplots_adjust(wspace=0.25)
 
@@ -272,7 +262,7 @@ function plot_shear_dissipation(filename="./../data/data_ES.jld")
 
     norm = mpl.colors.Normalize(vmin=log10(η_prof[1]), vmax=log10(η_prof[end]))
     sm = PyPlot.cm.ScalarMappable(cmap=cmap2, norm=norm)
-    colorbar(sm, shrink=0.8, label="log\$_{\\mathregular{10}} (\$ Shear viscosity, \$\\eta\$ [Pa s]) ")
+    colorbar(sm, ax=ax2, shrink=0.8, label="log\$_{\\mathregular{10}} (\$ Shear viscosity, \$\\eta\$ [Pa s]) ")
 
     subplots_adjust(wspace=0.25)
 
