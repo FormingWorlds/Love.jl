@@ -5,19 +5,19 @@ This example reproduces all figures in the manuscript _Poroviscoelastic tidal he
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Figures will be created by running `PoroviscoelasticTidesIo.ipynb` in your favourite Jupyter notebook environment. 
+Figures will be created by running `PoroviscoelasticTides.ipynb` in your favourite Jupyter notebook environment. 
 
 In the `examples/PoroviscoelasticTides` directory, begin a Jupyter sever 
    ```sh
-   jupyter notebook PoroviscoelasticTidesIo.ipynb
+   jupyter notebook PoroviscoelasticTides.ipynb
    ```
 or 
    ```sh
-   jupyter execute PoroviscoelasticTidesIo.ipynb
+   jupyter execute PoroviscoelasticTides.ipynb
    ```
 Alternatively, use VisualStudio Code
    ```sh
-   code PoroviscoelasticTidesIo.ipynb
+   code PoroviscoelasticTides.ipynb
    ```
 
 ## Compatability 
