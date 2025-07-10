@@ -1,7 +1,7 @@
 include("./rheology_params.jl")
 
 "Plot Figure 4"
-function plot_darcy_dissipation(filename="./data/data_ED.jld")
+function plot_darcy_dissipation(filename="./../data/data_ED.jld")
     data = load(filename)
 
     El = data["E_Darcy_total"]
@@ -84,7 +84,7 @@ function plot_darcy_dissipation(filename="./data/data_ED.jld")
 end
 
 "Plot figure 3"
-function plot_compaction_dissipation(filename="./data/data_EC.jld")
+function plot_compaction_dissipation(filename="./../data/data_EC.jld")
     data = load(filename)
     
     Ec = data["E_Comp_total"]
@@ -197,7 +197,7 @@ function plot_compaction_dissipation(filename="./data/data_EC.jld")
 end
 
 "Plot figure 2"
-function plot_shear_dissipation(filename="./data/data_ES.jld")
+function plot_shear_dissipation(filename="./../data/data_ES.jld")
     data = load(filename)
     
     Es = data["E_Shear_total"]
@@ -286,7 +286,7 @@ function plot_shear_dissipation(filename="./data/data_ES.jld")
 end
 
 "Plot figure 6"
-function plot_E_vs_phi(filename="./data/data_E_vs_phi.csv")
+function plot_E_vs_phi(filename="./../data/data_E_vs_phi.csv")
     fig, (ax1, ax2) = subplots(ncols=2, figsize=(8, 3.5), sharey=true)
 
     df1 = DataFrame(CSV.File(filename))
@@ -378,7 +378,7 @@ function plot_E_vs_phi(filename="./data/data_E_vs_phi.csv")
 end
 
 "Plot figure 7"
-function plot_b_sensitivity(filename="./data/data_E_vs_b.csv")
+function plot_b_sensitivity(filename="./../data/data_E_vs_b.csv")
 
     df2 = DataFrame(CSV.File(filename))
 
@@ -485,7 +485,7 @@ function plot_b_sensitivity(filename="./data/data_E_vs_b.csv")
 end
 
 "Plot figure S1"
-function plot_RN22(filename="./data/data_RN22")
+function plot_RN22(filename="./../data/data_RN22")
     df3 = DataFrame(CSV.File(filename))
 
     fig, (ax1, ax2) = subplots(ncols=2, figsize=(9, 4), sharey=true)
