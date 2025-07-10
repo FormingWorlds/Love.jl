@@ -21,7 +21,7 @@ module LoveRN22
     using LinearAlgebra
     using DoubleFloats
     using AssociatedLegendrePolynomials
-    include("SphericalHarmonics.jl")
+    include("../../src/SphericalHarmonics.jl")
     using .SphericalHarmonics
 
     export get_g, get_A!, get_A, get_B_product, get_Ic, get_B
