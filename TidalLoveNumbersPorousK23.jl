@@ -735,7 +735,7 @@ module TidalLoveNumbers
         nlayers = size(r)[2]
         nsublayers = size(r)[1]
 
-        y_start = get_Ic(r[end,1], ρ[1], g[end,1], μ[1], core, 6, 3)
+        y_start = get_Ic(r[end,1], ρ[1], g[end,1], μ[1], core; M=6, N=3)
 
         y1_4 = zeros(precc, 6, 3, nsublayers-1, nlayers) # Three linearly independent y solutions
         y = zeros(ComplexF64, 6, nsublayers-1, nlayers)
@@ -942,7 +942,7 @@ module TidalLoveNumbers
         return Eμ_map, Eκ_map
     end
 
-   """
+    """
         function get_heating_map(y, r, ρ, g, μ, Ks, ω, ρl, Kl, Kd, α, ηl, ϕ, k, ecc; vol=false)
 
     Get a surface heating map for two-phase tides and eccentricity forcing,
@@ -1113,7 +1113,7 @@ module TidalLoveNumbers
                 κr = κ[i]
                 μr = μ[i]
 
-                for j in 1:nsublay # Loop over sublayers 
+                for j in 1:nsublay-1 # Loop over sublayers 
                     @views yrr = y[1:6,j,i]
                     
                     rr = r[j,i]
@@ -1144,7 +1144,7 @@ module TidalLoveNumbers
 
         # Compute dissipation
         for j in rstart:rend    
-            for i in 1:nsublay
+            for i in 1:nsublay-1
                 dr = (r[i+1, j] - r[i, j])
                 dvol = 4π/3 * (r[i+1, j]^3 - r[i, j]^3)
 
@@ -1384,7 +1384,7 @@ module TidalLoveNumbers
         βr = λr + 2μr
 
         # Compute strain tensor
-        ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3 + αr*y7)/(βr*rr)  * Y
+        ϵ[:,:,1] = (-2λr*y1 + n*(n+1)λr*y2 + rr*y3 + rr*αr*y7)/(βr*rr)  * Y
         ϵ[:,:,2] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y + 0.5y2*X)
         ϵ[:,:,3] = 1/rr * ((y1 - 0.5n*(n+1)y2)Y - 0.5y2*X)
         ϵ[:,:,4] = 0.5/μr * y4 * dYdθ        
