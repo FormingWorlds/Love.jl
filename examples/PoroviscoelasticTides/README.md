@@ -13,8 +13,6 @@ If this is your first time running Julia in a Jupyter environment, you need to a
     pkg> add IJulia
     '''
 
-To ensure that Julia installs 
-
 In the `PoroviscoelasticTides` directory, begin a Jupyter server 
    ```sh
    jupyter notebook PoroviscoelasticTides.ipynb
