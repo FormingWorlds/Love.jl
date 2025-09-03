@@ -8,10 +8,10 @@ This example reproduces all figures in the manuscript _Poro-viscoelastic tidal h
 Figures will be created by running `PoroviscoelasticTides.ipynb` in your favourite Jupyter notebook environment. 
 
 If this is your first time running Julia in a Jupyter environment, you need to add the Julia kernal to Jupyter. Do this by first starting the Julia REPL with `julia`, then
-    '''sh
+    ```sh
     julia> ]
     pkg> add IJulia
-    '''
+    ```
 
 In the `PoroviscoelasticTides` directory, begin a Jupyter server 
    ```sh
