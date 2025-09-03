@@ -302,12 +302,14 @@ function plot_E_vs_phi(filename="./../data/data_E_vs_phi.csv")
                 mask .*= df1.φ .> 0.16
             end
             
+            mask .*= df1.φ .<= 0.3
+
             axes[j].loglog(df1.φ[mask], df1.Edarcy[mask], "r-" , lw=lws[i])#, color=cmap(0.5))
             axes[j].loglog(df1.φ[mask], df1.Eshear[mask], "b-", lw=lws[i])#, color=cmap(0.25))
-            axes[j].loglog(df1.φ[mask], df1.Ebulk[mask], "g-", lw=lws[i])
+            axes[j].loglog(df1.φ[mask], df1.Ecomp[mask], "g-", lw=lws[i])
             if i==3
                 axes[j].loglog(df1.φ[mask], df1.Eshear_solid[mask], "b--", lw=lws[i])  
-                axes[j].loglog(df1.φ[mask], df1.Ebulk_solid[mask], "g--", lw=lws[i]) 
+                axes[j].loglog(df1.φ[mask], df1.Ecomp_solid[mask], "g--", lw=lws[i]) 
                 axes[j].loglog(df1.φ[mask], df1.Etotal_solid[mask], "k--", lw=lws[i]) 
                 axes[j].loglog(df1[mask,:φ], df1[mask,:Etotal], "k-", lw=lws[i])#, color=cmap(0.0)
             end
@@ -319,7 +321,7 @@ function plot_E_vs_phi(filename="./../data/data_E_vs_phi.csv")
             end
 
             if j ==2
-                ax2.annotate("a = $(Int64(as[i]*100)) cm", fontsize=12, xy=(0.4, df1.Edarcy[mask][end]), xytext=(0.6, df1.Edarcy[mask][end]), color="r",
+                ax2.annotate("a = $(Int64(as[i]*100)) cm", fontsize=12, xy=(0.31, df1.Edarcy[mask][end]), xytext=(0.6, df1.Edarcy[mask][end]), color="r",
                     arrowprops=Dict("arrowstyle"=>"->", "connectionstyle"=>"arc3,rad=0.05", "color"=>"r"))
             end 
         end
@@ -422,9 +424,9 @@ function plot_b_sensitivity(filename="./../data/data_E_vs_b.csv")
         if i == 2
             for j in eachindex(φpos)
                 if j > 1
-                    ax3.text(apos[j]+0.06, ωtcpos[j]*(1+0.7 ) , "\$ \\phi =\$"*φlab[j], fontsize=10, rotation=12, alpha=0.5)
+                    ax3.text(apos[j]-0.28, ωtcpos[j]*(0.7) , "\$ \\phi =\$"*φlab[j], fontsize=10, rotation=7, alpha=0.5)
                 else
-                    ax3.text(apos[j]+0.02, ωtcpos[j]*(1+0.4 ) , "\$ \\phi =\$"*φlab[j], fontsize=10, rotation=10, alpha=0.5)
+                    ax3.text(apos[j]-0.2, ωtcpos[j]*(1 -0.05) , "\$ \\phi =\$"*φlab[j], fontsize=10, rotation=7, alpha=0.5)
                 end
             end
         end
@@ -465,7 +467,7 @@ function plot_b_sensitivity(filename="./../data/data_E_vs_b.csv")
     ax2.text(-0.22, 0.97, "b)", fontsize=14, fontweight="bold", transform=ax2.transAxes)
     ax3.text(-0.22, 0.97, "c)", fontsize=14, fontweight="bold", transform=ax3.transAxes)
 
-    ax3.text(0.8, 1.2, "\$\\omega\\tau_C =\$1", fontsize=11)
+    ax3.text(0.83, 1.2, "\$\\omega\\tau_C =\$1", fontsize=11)
 
     subplots_adjust(bottom=0.2)
 
@@ -549,7 +551,7 @@ function plot_param_vs_phi()
     ax2  = axs1[1]
     ax3  = axs1[2]
 
-    φs = 10 .^ collect(-3:0.01:log10(0.4))
+    φs = 10 .^ collect(-3:0.01:log10(0.3))
     a = 10 .^ collect(-4:0.1:-1)
 
     kφ = k_phi.(φs, a')'
@@ -594,23 +596,19 @@ function plot_param_vs_phi()
     ax5.tick_params(axis ="y", labelcolor = "blue") 
 
     bs = [0.5, 1.0, 1.5]
-    dashes = [[1, 0.0, 1.0, 0.0], [3, 3, 3], [2, 2, 2]]
+    dashes = [(1, 0, 1.0, 0), (3, 3, 3), (2, 2, 2)]
     for i in eachindex(bs)
         b = bs[i]
 
         κφ = κ_phi.(φs, 200e9, b)
         αφ = α_phi.(φs, b)
 
-        l1, = ax3.loglog(φs, κφ, label="κ", color="k")
-        l2, = ax4.plot(φs, αφ, color = "blue") 
+        l1, = ax3.loglog(φs, κφ, label="κ", color="k", dashes=dashes[i])
+        l2, = ax4.plot(φs, αφ, color = "blue", dashes=dashes[i]) 
 
         τζ = (ζφ ./ ((1. .- αφ ) .* 200e9)) * ω
 
-        l3, = ax5.loglog(φs, τζ, color="blue")
-
-        l1.set_dashes(dashes[i])
-        l2.set_dashes(dashes[i])
-        l3.set_dashes(dashes[i])
+        l3, = ax5.loglog(φs, τζ, color="blue", dashes=dashes[i])
     end
 
     ax1.fill_between(φs, 10, where=φs .> 0.3, facecolor="grey", alpha=.5, zorder=100)
