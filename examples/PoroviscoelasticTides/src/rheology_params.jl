@@ -8,7 +8,7 @@ end
 
 function ηs_phi(φ, ηl)
     l = 25.7 
-    φstar = 0.569
+    φstar = 1.0 - 0.569
     ξ = 1.17e-9 
     γ = 5.0 
 
