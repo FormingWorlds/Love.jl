@@ -36,5 +36,5 @@ This example has been tested with Julia versions:
 <!-- CONTACT -->
 ## Contact
 
-Hamish Hay - hamish.hay@earth.ox.ac.uk
+Hamish Hay - hamish.hay@earth.ox.ac.uk, hcfch1@st-andrews.ac.uk
 
