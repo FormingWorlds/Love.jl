@@ -32,6 +32,7 @@ This example has been tested with Julia versions:
 - 1.8.0
 - 1.9.0
 - 1.11.5
+- 1.11.6
 
 <!-- CONTACT -->
 ## Contact
