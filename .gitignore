@@ -1,4 +1,7 @@
 *.png
 *.pdf
 *.txt
+*.nc
 Manifest.toml
+.DS_Store
+nogit*

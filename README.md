@@ -1,21 +1,41 @@
-<a id="readme-top"></a>
 
-## Love.jl
 
-`Love.jl` is a Julia package to calculate the tidal deformation (i.e., tidal Love numbers) of solid and partially-solid planetary bodies.
+<a href="https://opensource.org/license/mit">
+   <img src="https://img.shields.io/badge/License-MIT-blue.svg">
+</a>
+<a href="https://arxiv.org/abs/2507.11266">
+  <img src="https://img.shields.io/badge/arXiv-2507.11266-b31b1b">
+</a>
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+## Love.jl (Tidal heating model)
 
-<!-- USAGE EXAMPLES -->
-## Usage
+A Julia package to calculate the tidal deformation (i.e., tidal Love numbers) of solid and partially-solid planetary bodies.
 
-See the `examples` directory for usage of Love.jl.
+Forked from the [original repository](https://github.com/hamishHay/Love.jl) of Hamish Hay. Distributed under the MIT License.
+
+### Documentation
+https://fwl-proteus.readthedocs.io
+
+## Contributors
+
+| Name  | Email address |
+| -     | -             |
+Hamish Hay              | hamish[at]tides.rocks |
+Tim Lichtenberg         | tim.lichtenberg[at]rug.nl |
+Harrison Nicholls       | harrison.nicholls[at]physics.ox.ac.uk |
+
+
+### Repository structure
+* `README.md`           - This file
+* `LICENSE.txt`         - License for modification, distribution, etc.
+* `src/`                - Source files
+* `examples/`           - Tools and notebooks showing how to use the code
 
 ### Installation
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/hamishHay/Love.jl.git
+   git clone https://github.com/FormingWorlds/Love.jl.git
    ```
 2. Move to the repository directory and start Julia
    ```sh
@@ -25,23 +45,5 @@ See the `examples` directory for usage of Love.jl.
 3. Install `Love.jl`
    ```sh
    julia> ]
-   pkg> add https://github.com/hamishHay/Love.jl.git#julia
-   ```
-   
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+   pkg> add https://github.com/FormingWorlds/Love.jl.git#julia
 
-<!-- LICENSE -->
-## License
-
-Distributed under the MIT License. See `LICENSE.txt` for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Hamish Hay - hamish@tides.rocks
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
