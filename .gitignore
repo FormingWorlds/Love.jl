@@ -4,3 +4,9 @@
 Manifest.toml
 .DS_Store
 nogit*
+output/
+*.pkl
+__pycache__
+.ruff_cache/
+.vscode/
+
