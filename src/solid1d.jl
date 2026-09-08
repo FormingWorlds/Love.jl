@@ -321,7 +321,8 @@ module solid1d
         Ks = K ./ μ0
         ωs = ω / ω0
 
-        y_start = get_Ic(ωs, rs[end,1], ρ_core/ρ0, gs[end,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6])
+        # Core basis must be evaluated at the core-mantle boundary itself (rs[1,1])
+        y_start = get_Ic(ωs, rs[1,1], ρ_core/ρ0, gs[1,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6])
 
         y1_4 = zeros(precc, 6, 3, nsublayers-1, nlayers) # Three linearly independent y solutions
                 

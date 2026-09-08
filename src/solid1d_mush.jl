@@ -482,11 +482,12 @@ module solid1d_mush
         ks = k./R0^2
 
         # Define starting vector as the core solution matrix, Y_r_C (Eq. S5.15)
+        # Core basis must be evaluated at the core-mantle boundary itself (rs[1,1])
         if porous_layer[1]
-            y_start = get_Ic(ωs, rs[end,1], ρ_core/ρ0, gs[end,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6,7,8])
+            y_start = get_Ic(ωs, rs[1,1], ρ_core/ρ0, gs[1,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6,7,8])
         else
             y_start = zeros(precc, 8, 4)
-            y_start[1:6, 1:3] .= get_Ic(ωs, rs[end,1], ρ_core/ρ0, gs[end,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6])
+            y_start[1:6, 1:3] .= get_Ic(ωs, rs[1,1], ρ_core/ρ0, gs[1,1], μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=[1,2,3,4,5,6])
         end
 
         y1_4 = zeros(precc, 8,   4, nsublayers-1, nlayers)  # Four linearly independent y solutions
