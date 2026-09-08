@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>1 - 0D Test · Obliqua</title><meta name="title" content="1 - 0D Test · Obliqua"/><meta property="og:title" content="1 - 0D Test · Obliqua"/><meta property="twitter:title" content="1 - 0D Test · Obliqua"/><meta name="description" content="Documentation for Obliqua."/><meta property="og:description" content="Documentation for Obliqua."/><meta property="twitter:description" content="Documentation for Obliqua."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/style.css" rel="stylesheet" type="text/css"/><link href="../../assets/glyph_tidal.ico" rel="icon" type="image/x-icon"/><script src="../../assets/theme-toggle.js"></script><link href="../../assets/os-tabs.css" rel="stylesheet" type="text/css"/><script src="../../assets/os-tabs.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Obliqua</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../get_started/">Get started</a></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how-to-guides/install/">1 - Installation</a></li><li><a class="tocitem" href="../../how-to-guides/config_file/">2 - Configuration</a></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">3 - Usage</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how-to-guides/usage/">Overview</a></li><li><a class="tocitem" href="../../how-to-guides/running_output/">Running and output</a></li></ul></li><li><a class="tocitem" href="../../how-to-guides/stabilise_sim/">4 - Stabilise simulations</a></li><li><a class="tocitem" href="../../how-to-guides/troubleshooting/">5 - Troubleshooting</a></li><li><a class="tocitem" href="../../how-to-guides/testing/">6 - Testing and profiling</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox" checked/><label class="tocitem" for="menuitem-4"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li class="is-active"><a class="tocitem" href>1 - 0D Test</a></li><li><a class="tocitem" href="../1d_test/">2 - 1D Test</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-5" type="checkbox"/><label class="tocitem" for="menuitem-5"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../reference/">Overview</a></li><li><a class="tocitem" href="../../reference/configuration-file/">0 - Configuring Model</a></li><li><a class="tocitem" href="../../reference/forcing-frequency/">1 - Forcing Frequency</a></li><li><a class="tocitem" href="../../reference/rheology/">2 - Rheology</a></li><li><input class="collapse-toggle" id="menuitem-5-5" type="checkbox"/><label class="tocitem" for="menuitem-5-5"><span class="docs-label">3 - Solid-phase</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../reference/solid-phase/">Overview</a></li><li><a class="tocitem" href="../../reference/solid/solid0d/">Solid0d</a></li><li><a class="tocitem" href="../../reference/solid/solid1d/">Solid1d</a></li><li><a class="tocitem" href="../../reference/solid/solid1d_mush/">Solid1d-mush</a></li><li><a class="tocitem" href="../../reference/solid/solid1d_relax/">Solid1d-relax</a></li><li><a class="tocitem" href="../../reference/solid/solid1d_mush_relax/">Solid1d-mush-relax</a></li><li><a class="tocitem" href="../../reference/solid/solid1d_equil_relax/">Solid1d-equil-relax</a></li></ul></li><li><a class="tocitem" href="../../reference/mush-layer/">4 - Mush layer</a></li><li><a class="tocitem" href="../../reference/liquid-phase/">5 - Liquid-phase</a></li><li><a class="tocitem" href="../../reference/surface-loading/">6 - Surface Loading</a></li><li><a class="tocitem" href="../../reference/tidal-potentials/">7 - Tidal potential</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-6" type="checkbox"/><label class="tocitem" for="menuitem-6"><span class="docs-label">Explanation</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../explanation/">Overview</a></li><li><a class="tocitem" href="../../explanation/technical_overview/">1 - Technical overview</a></li><li><a class="tocitem" href="../../explanation/main_loop/">2 - Main loop</a></li><li><a class="tocitem" href="../../explanation/iter_proc/">3 - Iterative process</a></li><li><a class="tocitem" href="../../explanation/post_proc/">4 - Post-processing</a></li><li><a class="tocitem" href="../../explanation/stabilize/">5 - Stabilization techniques</a></li></ul></li><li><a class="tocitem" href="../../development/">Development</a></li><li><a class="tocitem" href="../../ecosystem/">Related codes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>1 - 0D Test</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>1 - 0D Test</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/FormingWorlds/Obliqua" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/FormingWorlds/Obliqua/blob/main/docs/src/tutorials/0d_test.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Zero-dimensional-test-case:-The-Moon"><a class="docs-heading-anchor" href="#Zero-dimensional-test-case:-The-Moon">Zero-dimensional test case: The Moon</a><a id="Zero-dimensional-test-case:-The-Moon-1"></a><a class="docs-heading-anchor-permalink" href="#Zero-dimensional-test-case:-The-Moon" title="Permalink"></a></h1><p>This is a simple test case to demonstrate the use of Obliqua for a zero-dimensional model of the Moon. We will create a basic data lookup table for the Moon&#39;s tidal <span>$k$</span>-Love number response. </p><hr/><h3 id="Prerequisite"><a class="docs-heading-anchor" href="#Prerequisite">Prerequisite</a><a id="Prerequisite-1"></a><a class="docs-heading-anchor-permalink" href="#Prerequisite" title="Permalink"></a></h3><ul><li>Ensure that you have the <code>Obliqua</code> package installed.</li></ul><hr/><h3 id="Creating-the-data-file"><a class="docs-heading-anchor" href="#Creating-the-data-file">Creating the data file</a><a id="Creating-the-data-file-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-the-data-file" title="Permalink"></a></h3><p>Use your favourite file editor IDE to create a new file called <code>0d_test_moon.json</code> in the <code>res/interior_data</code> directory of the Obliqua package. The data file should be a JSON file with the following structure:</p><pre><code class="language-json hljs">{
+    &quot;omega&quot;: 1.0e-06,       // Orbital frequency in rad/s
+    &quot;axial&quot;: 1.0e-06,       // Axial rotation frequency in rad/s
+    &quot;ecc&quot;: 0.1,             // Orbital eccentricity
+    &quot;sma&quot;: 1.82e7,          // Semi-major axis in meters
+    &quot;S_mass&quot;: 6e24,         // Mass of the central body in kg
+    &quot;density&quot;: [            // Radial density profile in kg/m^3
+        3500.0,             // Solid mantle density
+        3500.0              // Molten crust density
+    ],
+    &quot;radius&quot;: [             // Radial radius profile in meters
+        480000.0,           // Radius of the iron core in meters
+        995613.0,           // Radius of the solid mantle in meters
+        1650000.0           // Radius of the molten crust in meters (i.e. the surface)
+    ],
+    &quot;visc&quot;: [               // Viscosity profile in Pa.s
+        1e22,               // Viscosity of the solid mantle in Pa.s
+        1e2                 // Viscosity of the molten crust in Pa.s
+    ],
+    &quot;shear&quot;: [              // Shear modulus profile in Pa
+        65857968278.256905, // Shear modulus of the solid mantle in Pa
+        10.0                // Shear modulus of the molten crust in Pa
+    ],
+    &quot;bulk&quot;: [               // Bulk modulus profile in Pa
+        147739735943.7933,  // Bulk modulus of the solid mantle in Pa
+        1000000000.0        // Bulk modulus of the molten crust in Pa
+    ],
+    &quot;phi&quot;: [                // Porosity profile (dimensionless)
+        0.0,                // Porosity of the solid mantle (dimensionless)
+        1.0                 // Porosity of the molten crust (dimensionless
+    ]
+}</code></pre><p>The values provided here reflect a partially molten Moon, with a fluid iron core, a solid mantle, and a partially molten crust. Although we do not require the orbital parameters for this test case, we still need to provide them in the data file. The values provided here are arbitrary and do not affect the tidal response calculations.</p><hr/><h3 id="The-configuration-file"><a class="docs-heading-anchor" href="#The-configuration-file">The configuration file</a><a id="The-configuration-file-1"></a><a class="docs-heading-anchor-permalink" href="#The-configuration-file" title="Permalink"></a></h3><p>The configuration file should be a TOML file with the following structure:</p><pre><code class="language-toml hljs">title = &quot;Moon&quot;                      # Given title for the configuration file
+version = &quot;1.0&quot;
+
+[params]
+    [params.out]
+        path        = &quot;out&quot;         # Set the outpath for the output files
+        time        = 0.0
+        logging     = &quot;INFO&quot;
+        plot_fmt    = &quot;png&quot;
+
+# Orbital system
+[orbit]
+    [orbit.obliqua]
+        store_3D    = false
+        enforce_ec  = false
+        optimize_scales = false
+        solid_shell = false
+
+        min_frac    = 0.05
+        visc_l      = 1e2
+        visc_lus    = 1e3
+        visc_s      = 1e22
+        visc_sus    = 1e21
+        n           = [2]
+        m           = [0, 2]
+        spectrum    = &quot;full&quot;        # Specify the use of the full spectrum 
+        N_sigma     = 100           # Set the number of probe forcing frequencies
+        p_min       = -8            # Set the minimum probe forcing frequency (in [log(kyr)])
+        p_max       = 4             # Set the maximum probe forcing frequency (in [log(kyr)])
+        s_min       = &quot;none&quot;
+        s_max       = &quot;none&quot;
+        
+        material_mu = &quot;andrade&quot;     # Set the rheological model to use for the shear modulus
+        material_k  = &quot;andrade&quot;     # Set the rheological model to use for the bulk modulus
+        alpha       = 0.3           # Set the Andrade power-law exponent.
+
+        module_solid = &quot;solid0d&quot;    # Set the tidal model to use for the solid layer
+        module_mushy = &quot;none&quot;       
+        module_fluid = &quot;fluid0d&quot;    # Set the tidal model to use for the fluid layer
+
+        [orbit.obliqua.solid]
+            ncalc       = 100
+            dr_min      = 300
+            dr_max      = 3000
+            core        = &quot;liquid&quot;
+            core_props  = &quot;core&quot;
+            inertial_terms = true
+            bulk_l      = 1e9
+            dbulk_power = 0.5
+            porosity_thresh = 3e-2
+
+        [orbit.obliqua.fluid]
+            sigma_R     = 2e-3      # Specifiy the Rayleigh drag coefficient for the fluid layer
+            sigma_R_inf = 1e-3
+            sigma_R_prf = &quot;dynamic_interp&quot;
+            H_R         = 1e5
+            efficiency  = 1e0
+
+        [orbit.obliqua.mushy]
+            b_width     = 5e-1
+            t_width     = 3e-2
+
+[struct]
+    core_density = 7822.0
+    core_shear   = 0.0
+    core_bulk    = 5e11
+
+[interior_energetics]
+    grain_size   = 0.1</code></pre><p>Create it in the <code>res/config</code> directory of the Obliqua package and name it <code>moon_config.toml</code>. Key parameters to note are the <code>module_solid</code>, <code>module_mushy</code>, and <code>module_fluid</code> parameters, which specify the tidal model to use for the solid, mushy, and fluid layers, respectively. In this case, we are using the <code>solid0d</code> model for the solid layer and the <code>fluid0d</code> model for the fluid layer. The mushy layer is not used in this test case. We are also using the <code>andrade</code> rheological model for both the shear and bulk moduli. For the full spectrum, we are using 100 probe forcing frequencies, which are logarithmically spaced between 10⁻⁸ and 10⁴ Hz. </p><p>Note that many of the parameters in the configuration file are not used in this test case, but are required for the <code>Obliqua.run_tides</code> function to work. They are left as the default values found in the <code>all_options.toml</code> configuration file.</p><h3 id="Running-the-test-case"><a class="docs-heading-anchor" href="#Running-the-test-case">Running the test case</a><a id="Running-the-test-case-1"></a><a class="docs-heading-anchor-permalink" href="#Running-the-test-case" title="Permalink"></a></h3><p>With these files in place, we can now run the test case. Create a new Julia script called <code>run_moon.jl</code> in the root directory of the Obliqua package with the following content:</p><pre><code class="language-julia hljs">using Obliqua
+
+# Clean up output directory
+rm(&quot;out/&quot;,force=true,recursive=true)
+if !isdir(&quot;out/&quot;) &amp;&amp; !isfile(&quot;out/&quot;)
+    mkdir(&quot;out/&quot;)
+end
+
+# Load configuration
+cfg = Obliqua.open_config(&quot;res/config/moon_config.toml&quot;)
+
+# Load interior model
+omega, axial, ecc, sma, S_mass, rho, radius, visc, shear, bulk, phi, ncalc =
+    load.load_interior_mush_full(&quot;res/interior_data/0d_test_moon.json&quot;, false)
+
+# Extract mush zone properties
+perm      = Obliqua.interior.get_permeability(phi, cfg)
+perm, phi = Obliqua.interior.limit_porosity(perm, phi, cfg)
+bulkd     = Obliqua.interior.get_drained_bulk(bulk, phi, cfg)
+
+# Run tidal calculation
+power_prf, power_blk, nmk, σ_range, LNk = Obliqua.run_tides(
+    omega, axial, ecc, sma, S_mass, rho, radius, visc, shear, bulk, bulkd, phi, perm, cfg
+)</code></pre><div class="admonition is-category-check" id="Check-cbae1253920780ea"><header class="admonition-header">Check<a class="admonition-anchor" href="#Check-cbae1253920780ea" title="Permalink"></a></header><div class="admonition-body"><p>The filetree should look like this: </p><pre><code class="language-bash hljs">Obliqua/
+├── 📂 res/
+│   ├── 📂 config
+|   │   └── 📄 moon_config.toml
+│   └── 📂 interior_data
+│       └── 📄 0d_test_moon.json
+├── 📄 run_moon.jl</code></pre></div></div><p>Run the script using </p><pre><code class="language-bash hljs">julia --project run_moon.jl</code></pre><hr/><h3 id="Expected-output"><a class="docs-heading-anchor" href="#Expected-output">Expected output</a><a id="Expected-output-1"></a><a class="docs-heading-anchor-permalink" href="#Expected-output" title="Permalink"></a></h3><p>At this point, the function will return several outputs in the terminal:</p><pre><code class="language-bash hljs">[ Info: Loading interior from JSON file: res/interior_data/0d_test_moon.json
+[ Info: Using configuration &#39;Moon&#39;
+[ Info: Using (n, m, k) = (2, 0, 1) for full spectrum.
+[ Info: Smoothing complex modulus profiles to avoid sharp jumps in viscosity...
+[ Info: Smoothing between indices 1 and 2 (r = 480000.0 to 995613.0 m)
+[ Info: Writing results to /out/0_obliqua.nc
+[ Info: Expected bulk heating: 2.9281844574776967e22
+[ Info: Obtained bulk heating: 0.0</code></pre><p>First, Obliqua will load the interior data and the configuration file. Next it will decide on which modes to include in the calculation. In this case, we are using the full spectrum, which restricts to the same mode for all forcing frequencies. Next, the complex modulus profiles are smoothed to avoid sharp jumps in viscosity, which can cause numerical instabilities. Finally, the results are written to a NetCDF file in the <code>out</code> directory. The expected bulk heating is also printed to the terminal, which is the total tidal dissipation rate in Watts. However, this is not relevant for the full spectrum. The obtained bulk heating is also printed, which is the total radially integrated tidal dissipation rate from the heating profile in Watts, and should be zero for all zero-dimensional models.</p><p>Let us now run the <code>examples/visualize_output.ipynb</code> notebook to visualize the results. The output should look like this:</p><p><img src="../panels/0d.png" alt="alt text"/></p><p>Here we see the imaginary part of the tidal <span>$k$</span>-Love number as a function of the forcing frequency. We see both the solid and fluid contributions to the tidal response. The solid contribution is dominant at low frequencies, while the fluid contribution is dominant at high frequencies. This is the expected behaviour for a partially molten Moon. </p><div style="font-size: 0.85em; color: #777777; border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px;">
+
+Farhat, M., Auclair-Desrotour, P., Boué, G., Lichtenberg, T., & Laskar, J. (2025). Tides on Lava Worlds: Application to Close-in Exoplanets and the Early Earth–Moon System. *The Astrophysical Journal*, 979(2), 133. DOI: 10.3847/1538-4357/ad9b93
+
+</div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../how-to-guides/testing/">« 6 - Testing and profiling</a><a class="docs-footer-nextpage" href="../1d_test/">2 - 1D Test »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 8 September 2026 14:48">Tuesday 8 September 2026</span>. Using Julia version 1.11.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
