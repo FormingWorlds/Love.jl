@@ -50,3 +50,43 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: FormingWorlds/Obliqua
+        
+      - name: Publish test badges to gist
+        if: ${{(github.event_name == 'push') && (github.ref == 'refs/heads/main')}}
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          set -e
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          gist_id = "ebf04f7a12a5b14edb8198927121d149"
+          token = os.environ.get("GIST_TOKEN", "").strip()
+          if not token:
+              raise RuntimeError("GIST_TOKEN is not set")
+
+          badge_files = ["tests-unit.json", "tests-integration.json", "tests-total.json"]
+          files = {}
+          for name in badge_files:
+              p = Path(".github/badges") / name
+              files[name] = {"content": p.read_text(encoding="utf-8")}
+
+          payload = json.dumps({"files": files}).encode("utf-8")
+          req = Request(
+              url=f"https://api.github.com/gists/{gist_id}",
+              data=payload,
+              method="PATCH",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json",
+              },
+          )
+          with urlopen(req) as resp:
+              if resp.status != 200:
+                  raise RuntimeError(f"Failed to update gist, status={resp.status}")
+          PY

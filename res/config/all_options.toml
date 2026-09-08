@@ -76,6 +76,9 @@ version = "1.0"                 # Version of this configuration file
         #                           with evolving rheology between solid and liquid behavior.
         # - "solid1d-mush-relax"  : Same as solid1d_relax but includes a partially molten/porous ("mushy") region
         #                           with evolving rheology between solid and liquid behavior.
+        # - "solid1d-equil-relax" : Same as solid1d_relax but limited to the fully fluid interior case, specifically
+        #                           designed for the equilibrium tide. Automatically selected when using the other
+        #                           solid1d* models when the forcing frequency is less than the 1/Hubble time.
         module_solid = "solid1d-relax"
 
         # Mushy layer model
@@ -99,6 +102,8 @@ version = "1.0"                 # Version of this configuration file
             dr_min      = 10        # Minimum spacing between grid points (for relaxation method) [m]
             dr_max      = 300       # Maximum spacing between grid points (for relaxation method) [m]
             core        = "liquid"  # Core solution to use as CMB boundary condition, options: "liquid", "solid", "inertial"
+            core_props  = "core"    # Core properties to use for CMB boundary condition, options: "core", "mantle"
+            inertial_terms = true   # Include inertial terms in the solid tidal response equations
             bulk_l      = 1e9       # Liquid bulk modulus [Pa]
             dbulk_power = 0.5       # Drained bulk modulus powerlaw scaling exponent
             porosity_thresh = 3e-2  # Percolation threshold, at which there is a first‐order transition from fully connected to fully isolated pore space [dimensionless]

@@ -1,7 +1,7 @@
 # Troubleshooting
 This page may be useful if you are having problems.
 
-## Julia version is incompatible / Errors about OpenSSL library
+### Julia version is incompatible / Errors about OpenSSL library
 You must use Julia version 1.11 because there are incompatibilities between the OpenSSL library required by Julia1.12 and Python. 
 
 Switch Julia versions using the `juliaup` command. E.g:
@@ -14,7 +14,7 @@ julia --version       # This should say 1.11.*
 
 After following these steps, try installing Obliqua again.
 
-## Julia errors on start, potentially referencing the CURL library
+### Julia errors on start, potentially referencing the CURL library
 It is important that the shell environment variable `LD_LIBRARY_PATH` is
 not set when running Obliqua. This will cause Julia to use the wrong libraries, which will causes problems. You can unset this variable or reset using either of the following commands
 ```bash

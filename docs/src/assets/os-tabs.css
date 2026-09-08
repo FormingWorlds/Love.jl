@@ -1,0 +1,60 @@
+.os-tabs {
+  --os-surface: #F2F5F7;   /* Paper */
+  --os-header:  #E4E9ED;
+  --os-border:  #D4DADF;
+  --os-text:    #10151B;   /* Ink */
+  --os-muted:   #6B7684;
+  --os-magma:   #E23D28;
+  margin: 1.25em 0;
+  border: 1px solid var(--os-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--os-surface);
+  font-family: "Instrument Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html.theme--documenter-dark .os-tabs {
+  --os-surface: #05070B;   /* Void */
+  --os-header:  #0E131B;   /* Basalt */
+  --os-border:  #1c2430;
+  --os-text:    #F2F5F7;   /* Paper */
+  --os-muted:   #8A93A0;
+}
+
+.os-tabs [role="tablist"] {
+  display: flex;
+  background: var(--os-header);
+  border-bottom: 1px solid var(--os-border);
+}
+
+.os-tabs [role="tab"] {
+  appearance: none !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--os-muted);
+  padding: 0.6em 1em;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent !important;
+  margin: 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.os-tabs [role="tab"]:hover { color: var(--os-text); }
+
+.os-tabs [role="tab"][aria-selected="true"] {
+  color: var(--os-text);
+  border-bottom-color: var(--os-magma) !important;
+}
+
+.os-tabs [role="tabpanel"] { display: none !important; }
+.os-tabs [role="tabpanel"][data-active="true"] { display: block !important; }
+
+.os-tabs [role="tabpanel"] pre {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  background: var(--os-surface) !important;
+  color: var(--os-text);
+}

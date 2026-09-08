@@ -1,0 +1,214 @@
+@charset "UTF-8";
+
+// =========================================================================
+// PROTEUS Core Palette (Visual Language v1.3 "Thermocline")
+// Shared across both light + dark themes. Do NOT set $themename or
+// @import "documenter-light"/"documenter-dark" from this file -- that must
+// happen exactly once, inside lightdefs.scss / darkdefs.scss respectively.
+// =========================================================================
+$void:        #05070B; // Surface (dark)
+$basalt:      #0E131B; // Cards / dark sidebar
+$paper:       #F2F5F7; // Surface (light) / text on dark
+$ink:         #10151B; // Text on light
+$ocean:       #1B6FA8; // Interactive / links
+$azure:       #4FA3D9; // Dark-mode accent / hover
+$abyss:       #14406B; // Deep ocean accent
+$ice:         #A8D4E8; // Highlights / secondary headers
+$magma:       #E23D28; // Hot signal (rare, high-energy)
+$mantle:      #8E1F12; // Magma, for fills
+$crimson:     #C2362B; // Magma, on light surfaces
+$solar:       #E0A32E; // Accent, sporadic highlight (dark surfaces)
+$solar-light: #C8860F; // Solar, deepened for light surfaces
+$verdant:     #57A05C; // Accent, habitable endpoint
+
+$maincolor: $basalt;
+$secondcolor: $ocean;
+$mainwhite: $paper;
+$mainblack: $ink;
+$darkbg: $void;
+
+// Typography Variables
+$family-sans-serif: 'Instrument Sans', sans-serif;
+$family-monospace: 'Spline Sans Mono', monospace;
+$family-heading: 'Sora', sans-serif;
+
+@font-face {
+  font-family: 'Sora';
+  src: url("../fonts/Sora-Variable.ttf") format("truetype-variations");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url("../fonts/InstrumentSans-Variable.ttf") format("truetype-variations");
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Spline Sans Mono';
+  src: url("../fonts/SplineSansMono-Variable.ttf") format("truetype-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Sidebar Shadow
+$shadow-color: rgba(0, 0, 0, 0.4) !default;
+$shadow-size: 0.2rem !default;
+$shadow-blur: 0.4rem !default;
+
+$lightness-unit: 8% !default;
+@function darken-color($color, $factor) {
+  @return adjust-color($color, $lightness: -$factor*$lightness-unit);
+}
+@function lighten-color($color, $factor) {
+  @return adjust-color($color, $lightness: $factor*$lightness-unit);
+}
+
+// Font sizing (shared defaults; either theme may override before its own @import)
+$body-font-size: 1.0em;
+$documenter-sidebar-size: 1.0em;
+
+// NOTE: $themename, the @import of the base Documenter theme, and all
+// theme-specific variable overrides live in lightdefs.scss / darkdefs.scss.
+
+h1, h2, h3, h4, h5, h6,
+.title, .subtitle,
+#documenter .docs-package-name {
+  font-family: $family-heading;
+}
+
+#documenter .docs-version-selector,
+figcaption, time,
+.eyebrow, .caption {
+  font-family: $family-monospace;
+}
+// This template file overrides some of the Documenter theme variables to customize the theme:
+$themename: "documenter-light"; // CSS file must be called `$(themename).css`
+
+$boldcolor: $maincolor;
+
+$body-background-color: $mainwhite; // main page background
+
+// Sidebar
+$documenter-sidebar-background: $maincolor;
+$documenter-sidebar-color: $mainwhite;
+$documenter-sidebar-menu-hover-color: $documenter-sidebar-color;
+$documenter-sidebar-menu-hover-background: darken-color($documenter-sidebar-background, 1.5);
+
+$documenter-sidebar-menu-active-background: $mainwhite;
+$documenter-sidebar-menu-active-color: $mainblack;
+$documenter-sidebar-menu-active-hover-background: darken-color($body-background-color, 1.5);
+$documenter-sidebar-menu-active-hover-color: $documenter-sidebar-menu-active-color;
+
+// this is the color the links get, and also when they are hovered
+$link: $secondcolor;
+$link-hover: darken-color($link, 1);
+
+// Main text color:
+$text: $mainblack;
+// Bold text color, also affects headers
+$text-strong: $boldcolor;
+
+// Admonition stuff -- light pastel tints of each category's brand color.
+// Crimson is the brand guide's stated light-mode equivalent of Magma.
+$admonition-background: (
+  'default': darken-color($mainwhite, 1),
+  'info':    $ice,
+  'success': lighten-color($verdant, 4),
+  'warning': lighten-color($solar-light, 5),
+  'danger':  lighten-color($crimson, 5),
+  'compat':  lighten-color($azure, 3),
+  'note':    $ice,
+  'todo':    lighten-color($crimson, 4.5)
+);
+$admonition-header-background: (
+  'default': darken-color(darken-color($mainwhite, 1), 0.5),
+  'info':    darken-color($ice, 0.5),
+  'success': darken-color(lighten-color($verdant, 4), 0.5),
+  'warning': darken-color(lighten-color($solar-light, 5), 0.5),
+  'danger':  darken-color(lighten-color($crimson, 5), 0.5),
+  'compat':  darken-color(lighten-color($azure, 3), 0.5),
+  'note':    darken-color($ice, 0.5),
+  'todo':    darken-color(lighten-color($crimson, 4.5), 0.5)
+);
+
+// Code text color:
+$code: $mainblack;
+$codebg: darken-color($body-background-color, 1.1);
+$code-background: $codebg; // for inline code
+$pre-background: $codebg;  // for code blocks
+$documenter-docstring-header-background: darken-color($body-background-color, 0.4);
+
+// main text font size
+$body-font-size: 1.0em; // the default is 1.0
+// Sidebar text font size
+$documenter-sidebar-size: 1.0em; // the default is 1.0 as well
+
+// these two change what happens with input boxes (the search box):
+$input-hover-border-color: $secondcolor;
+$input-focus-border-color: $mainwhite;
+
+// Include the original theme which will now use the updated variables.
+// This should be the last thing in the SCSS file.
+@import "documenter-light";
+
+html.theme--documenter-light {
+  // Code block custom styling (light mode)
+  pre, 
+  div.copy-wrapper {
+    // Barely breaks apart from the paper background
+    background-color: darken-color($paper, 0.4) !important;
+    border: none !important;
+    border-left: 3px solid $crimson !important; // Red edge on the left
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    position: relative;
+
+    code {
+      background-color: transparent !important;
+      color: $ink !important;
+    }
+  }
+
+  // Copy button icon styling
+  button.copy-button,
+  .docs-copy-button,
+  .copy-action {
+    background-color: darken-color($paper, 0.8) !important;
+    border: 1px solid darken-color($paper, 1.5) !important;
+    border-radius: 6px;
+    opacity: 0.45; // Subtle muted default state
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+
+    // SVG icon tinting inside the copy button
+    svg, img, i {
+      fill: $ink !important;
+      color: $ink !important;
+    }
+
+    &:hover {
+      opacity: 1.0; // Brightens fully on hover
+      background-color: darken-color($paper, 1.2) !important;
+    }
+  }
+}
+
+#documenter .docs-sidebar { // This makes sidebar have shadow at all displays
+  border-right: none;
+  box-shadow: 1.2*$shadow-size 0rem 1*$shadow-blur $shadow-color;
+
+  form.docs-search > input { // these controls are for the searchbar
+    color: $mainwhite;
+    background-color: darken-color($documenter-sidebar-background, 1);
+    border-color: darken-color($documenter-sidebar-background, 2);
+    margin-top: 1.0rem;
+    margin-bottom: 1.0rem;
+    &::placeholder {
+      color: $mainwhite;
+    }
+  }
+}

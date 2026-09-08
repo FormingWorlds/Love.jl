@@ -1,0 +1,109 @@
+/* Inherit typography from SCSS definitions rather than forcing Inter/JetBrains */
+pre, article, nav, body {
+    font-weight: 400;
+    font-size: 15px;
+    text-align: justify;
+}
+
+code {
+    font-weight: 400;
+    font-size: 12px;
+}
+
+/* Keep general body images at 75%, but exempt badge links and badges with height attributes */
+img:not([src*="shields.io"]):not([src*="codecov.io"]):not([src*="vercel.app"]):not([height]) {
+    width: 75%;
+}
+
+/* Force shield badges to display inline at standard size */
+p[align="center"] a img,
+img[src*="shields.io"],
+img[src*="codecov.io"] {
+    width: auto;
+    height: 20px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.left {
+    float: left;
+    padding: 2px;
+}
+
+.center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.display-light-only {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 32%;
+}
+
+.display-dark-only {
+    display: none;
+    margin-left: auto;
+    margin-right: auto;
+    width: 32%;
+}
+
+/* Documenter theme state triggers */
+html.theme--documenter-dark .display-light-only,
+body.theme--documenter-dark .display-light-only {
+    display: none !important;
+}
+
+html.theme--documenter-dark .display-dark-only,
+body.theme--documenter-dark .display-dark-only {
+    display: block !important;
+}
+
+.attributes-table {
+  margin-left: 1rem;
+  margin-right: 1rem;
+  padding: 0 1rem;
+}
+
+.attributes-table table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.class-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem 0;
+  font-family: 'Spline Sans Mono', monospace;
+}
+
+.class-label {
+  font-size: 0.85em;
+  font-weight: 400;
+  color: #F2F5F7;
+  background: #1B6FA8;
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+}
+
+.class-name {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #10151B;
+}
+
+/* Dark theme overrides */
+html.theme--documenter-dark .class-label,
+body.theme--documenter-dark .class-label {
+  color: #05070B;
+  background: #4FA3D9;
+}
+
+html.theme--documenter-dark .class-name,
+body.theme--documenter-dark .class-name {
+  color: #F2F5F7;
+}

@@ -1,0 +1,464 @@
+// This template file overrides some of the Documenter theme variables to customize the theme:
+$themename: "documenter-dark"; // CSS file must be called `$(themename).css`
+
+$boldcolor: $paper; // high-contrast strong text
+
+$body-background-color: $void; // default dark surface
+
+// Sidebar
+$documenter-sidebar-background: $basalt; // dark card/surface accent
+$documenter-sidebar-color: $paper;
+$documenter-sidebar-menu-hover-color: $documenter-sidebar-color;
+$documenter-sidebar-menu-hover-background: lighten-color($documenter-sidebar-background, 1.5);
+
+$documenter-sidebar-menu-active-background: $azure; // interactive highlight on dark
+$documenter-sidebar-menu-active-color: $void;
+$documenter-sidebar-menu-active-hover-background: lighten-color($documenter-sidebar-menu-active-background, 1.5);
+$documenter-sidebar-menu-active-hover-color: $documenter-sidebar-menu-active-color;
+
+// this is the color the links get, and also when they are hovered
+$link: $ocean;
+$link-hover: $azure;
+
+// Main text color:
+$text: $paper;
+// Bold text color, also affects headers
+$text-strong: $boldcolor;
+
+// Section headers (markdown ###) text color:
+// NOTE: Documenter's own SCSS has no $text-title hook, so this currently has
+// no visual effect -- kept for a future custom rule targeting docstring/
+// section headers directly.
+$text-title: $ice;
+
+// Admonition stuff -- dark surfaces tinted toward each category's brand color.
+// NOTE: these are deliberately NOT named $admonition-background /
+// $admonition-header-background. documenter-dark.scss itself unconditionally
+// resets those two standard names to Bulma's generic $background right
+// before _admonition.scss consumes them (a workaround for
+// https://github.com/JuliaDocs/Documenter.jl/issues/1766), which silently
+// discards any value we set here -- confirmed by compiling and inspecting
+// the output. Using our own names lets us re-apply the colors as plain CSS
+// after `@import "documenter-dark"` below, where they can no longer be
+// clobbered.
+$proteus-admonition-bg: (
+  'default': $basalt,
+  'info':    $abyss,
+  'success': darken-color($verdant, 3),
+  'warning': darken-color($solar, 3),
+  'danger':  $mantle,
+  'compat':  $abyss,
+  'note':    $abyss,
+  'todo':    darken-color($crimson, 2)
+);
+$proteus-admonition-header-bg: (
+  'default': lighten-color($basalt, 0.5),
+  'info':    lighten-color($abyss, 0.5),
+  'success': lighten-color(darken-color($verdant, 3), 0.5),
+  'warning': lighten-color(darken-color($solar, 3), 0.5),
+  'danger':  lighten-color($mantle, 0.5),
+  'compat':  lighten-color($abyss, 0.5),
+  'note':    lighten-color($abyss, 0.5),
+  'todo':    lighten-color(darken-color($crimson, 2), 0.5)
+);
+
+// Code text color:
+$code: $paper;
+$codebg: $basalt;
+$code-background: $codebg; // for inline code
+$pre-background: $codebg;  // for code blocks
+$documenter-docstring-header-background: lighten-color($body-background-color, 0.4);
+
+// main text font size
+$body-font-size: 1.0em;
+// Sidebar text font size
+$documenter-sidebar-size: 1.0em;
+
+// these two change what happens with input boxes (the search box):
+$input-hover-border-color: $azure;
+$input-focus-border-color: $magma;
+
+// Include the original theme which will now use the updated variables.
+// This should be the last thing in the SCSS file.
+@import "documenter-dark";
+
+// documenter-dark.scss sets $lightness-unit: -8% (deliberately, to flip its own
+// internal darken-color()/lighten-color() calls for dark-theme use). That's still
+// in effect here, so any lighten-color()/darken-color() call we make below would
+// go the WRONG direction (confirmed: lighten-color($basalt, 1) compiled to near-
+// black, not a lighter basalt). Restore the normal sign before using our own
+// darken-color()/lighten-color() helpers again.
+$lightness-unit: 8%;
+
+html.theme--documenter-dark {
+  // Page background + base text color
+  &, body, #documenter .docs-main {
+    background-color: $void;
+    color: $paper;
+  }
+
+  // 1. Top bar & top-right controls (GitHub, Settings, Theme Toggle, Scroll-to-top)
+  #documenter .docs-main nav.toc,
+  #documenter .docs-main header.docs-navbar,
+  .docs-navbar,
+  nav.breadcrumb {
+    background-color: $void;
+
+    // Force top-right control buttons, icons, and svgs to $paper
+    a, button, .docs-theme-toggle, .docs-settings-button, .docs-right-buttons {
+      color: $paper !important;
+
+      svg, img, i, span {
+        fill: $paper !important;
+        color: $paper !important;
+        stroke: $paper;
+      }
+
+      &:hover {
+        color: $azure !important;
+        svg, img, i, span {
+          fill: $azure !important;
+          color: $azure !important;
+          stroke: $azure;
+        }
+      }
+    }
+  }
+
+  // Settings modal/pop-up window background
+  .modal-card,
+  .modal-card-body,
+  .modal-card-head,
+  .modal-card-foot {
+    background-color: $basalt;
+    color: $paper;
+    border-color: lighten-color($basalt, 1);
+  }
+
+  // 2. Sidebar container - uses $void base background to match main area
+  #documenter .docs-sidebar {
+    background-color: $void !important;
+    color: $paper;
+
+    .docs-package-name a,
+    .docs-package-name a:hover {
+      color: $paper;
+    }
+
+    // Target structural wrappers (nav lists, menu labels, collapsible item parents)
+    ul.internal,
+    ul.docs-menu,
+    .menu-label,
+    .docs-navlink,
+    li {
+      background-color: $void !important;
+    }
+
+    // Force all navigation links, collapsible buttons, labels, and nested sub-section text to $void base
+    .docs-menu,
+    .docs-menu-item,
+    .docs-menu a,
+    .docs-label,
+    .docs-label a,
+    .docs-navlink,
+    .docs-navlink a,
+    .menu-label,
+    .tocitem,
+    .toc-item,
+    a.tocitem,
+    li a,
+    li ul a,            // Targets nested sub-sections
+    .tocitem span,      // Targets inner text spans in sub-lists
+    a.tocitem span {
+      background-color: $void !important;
+      color: $paper !important;
+    }
+
+    // Hover state across collapsible buttons, links, and sub-sections
+    .docs-menu a:hover,
+    .docs-label:hover,
+    .docs-label a:hover,
+    .docs-navlink:hover,
+    .menu-label:hover,
+    .tocitem:hover,
+    a.tocitem:hover,
+    li a:hover,
+    li ul a:hover {
+      background-color: lighten-color($void, 1.2) !important;
+      color: $paper !important;
+    }
+
+    // Active page / active section button highlight
+    .docs-menu .is-active,
+    .docs-menu-item.is-active,
+    .docs-navlink.is-active,
+    li.is-active > a,
+    li.is-active > .docs-navlink,
+    a.tocitem.is-active {
+      background-color: $basalt !important;
+      border-radius: 6px; // Adds the rounded container edges
+
+      &, & *, span {
+        color: $ice !important; // Soft light blue/ice text highlight
+      }
+
+      &:hover {
+        background-color: lighten-color($basalt, 1.2) !important;
+
+        &, & *, span {
+          color: $azure !important;
+        }
+      }
+    }
+
+    // Keep parent <li> and expanded subsection containers dark ($void) at all times
+    li.is-active {
+      background-color: $void !important;
+    }
+
+    li.is-active ul.internal,
+    li.is-active ul.internal li,
+    li.is-active ul.internal .tocitem,
+    li.is-active ul.internal .tocitem *,
+    li.is-active ul.internal a {
+      background-color: $void !important;
+      color: $paper !important;
+      border-radius: 0; // Ensures sub-items don't inherit the active parent pill shape
+    }
+
+    li.is-active ul.internal .tocitem:hover,
+    li.is-active ul.internal .tocitem:hover * {
+      background-color: lighten-color($void, 1.2) !important;
+      color: $paper !important;
+    }
+
+    ul.docs-menu li.is-active,
+    ul.docs-menu ul.internal {
+      border-color: $void !important;
+    }
+  }
+
+  // 3. Searchbar background & Search Pop-up/Dropdown results
+  #documenter .docs-sidebar form.docs-search > input,
+  .docs-search-query,
+  #documenter-search-query {
+    background-color: lighten-color($void, 1) !important;
+    border-color: lighten-color($void, 1.5) !important;
+    color: $paper;
+  }
+
+  // Search results modal/dropdown background
+  #documenter-search-results,
+  .docs-search-results,
+  .search-results-container,
+  #search-modal .modal-card-body {
+    background-color: $basalt;
+    color: $paper;
+
+    .search-result-item,
+    a {
+      background-color: $basalt;
+      color: $paper;
+
+      &:hover,
+      &.is-selected {
+        background-color: lighten-color($basalt, 1);
+        color: $azure;
+      }
+    }
+  }
+
+  // Headings / bold text / links / code
+  .title, strong { color: $paper; }
+  a { color: $ocean; }
+  a:hover { color: $azure; }
+  code {
+    color: $paper;
+    background-color: $basalt;
+  }
+
+  // Code block custom styling (matches design with crimson left edge)
+  pre, 
+  div.copy-wrapper {
+    background-color: $void !important;
+    border: none !important;
+    border-left: 3px solid $crimson !important; // Red edge on the left
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    position: relative;
+
+    code {
+      background-color: transparent !important;
+      color: $paper;
+    }
+  }
+
+  // Copy button icon styling inside code blocks
+  button.copy-button,
+  .docs-copy-button,
+  .copy-action {
+    background-color: lighten-color($void, 0.8) !important;
+    border: 1px solid lighten-color($void, 1.5) !important;
+    border-radius: 6px;
+    opacity: 0.4; // Darkened default state
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+
+    // SVG icon tinting inside the copy button
+    svg, img, i {
+      fill: $paper !important;
+      color: $paper !important;
+    }
+
+    &:hover {
+      opacity: 1.0; // Brightens fully on hover
+      background-color: lighten-color($void, 1.5) !important;
+    }
+  }
+
+  // Admonitions
+  @each $name, $bg in $proteus-admonition-bg {
+    .admonition.is-#{$name} { background-color: $bg; }
+  }
+  @each $name, $bg in $proteus-admonition-header-bg {
+    .admonition.is-#{$name} > .admonition-header { background-color: $bg; }
+  }
+
+  // Base Container (All admonitions)
+  article.admonition,
+  div.admonition,
+  .admonition {
+    background-color: $basalt !important;
+    border: 1px solid lighten-color($basalt, 1.5) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    overflow: hidden;
+
+    p, span, div {
+      color: $paper;
+    }
+
+    .admonition-title,
+    .admonition-header {
+      font-family: $family-heading !important;
+      font-weight: 600 !important;
+      border: none !important;
+    }
+  }
+
+  // 1. WARNING CALLOUT (Magma / Crimson)
+  // Force-override WARNING header & body
+  .admonition.warning,
+  .admonition.is-warning,
+  article.admonition.warning,
+  div.admonition.warning {
+    background-color: rgba($mantle, 0.25) !important;
+    border: 1px solid rgba($magma, 0.4) !important;
+    border-left: 5px solid $magma !important;
+
+    // Direct header override (targets Bulma's .message-header, .admonition-title, and all inner elements)
+    &,
+    > .message-header,
+    > .admonition-title,
+    > .admonition-header,
+    .message-header,
+    .admonition-title,
+    .admonition-header {
+      background-color: rgba($magma, 0.25) !important;
+      background: rgba($magma, 0.25) !important; // Overrides gradient/solid background sets
+      color: lighten-color($magma, 1) !important;
+
+      // Targets icon, bold titles, and text spans inside the header bar
+      *, p, span, i, svg, strong {
+        background-color: transparent !important;
+        color: lighten-color($magma, 1) !important;
+        fill: lighten-color($magma, 1) !important;
+      }
+    }
+
+    // Inner text content area
+    .message-body,
+    .admonition-text,
+    .admonition-content,
+    > p:not(.admonition-title):not(.message-header) {
+      background-color: transparent !important;
+      color: $paper !important;
+    }
+  }
+
+  // 2. INFO / NOTE CALLOUT (Ocean / Azure)
+  article.admonition.info,
+  article.admonition.note,
+  div.admonition.info,
+  div.admonition.note,
+  .admonition.info,
+  .admonition.note {
+    background-color: rgba($abyss, 0.3) !important;
+    border: 1px solid rgba($azure, 0.3) !important;
+    border-left: 5px solid $azure !important;
+
+    > .admonition-title,
+    > .admonition-header,
+    p.admonition-title {
+      background-color: rgba($abyss, 0.7) !important;
+      color: $ice !important;
+
+      &::before, svg, i, span {
+        color: $ice !important;
+        fill: $ice !important;
+      }
+    }
+  }
+
+  // 3. DANGER / ERROR CALLOUT (Mantle)
+  article.admonition.danger,
+  article.admonition.error,
+  div.admonition.danger,
+  div.admonition.error {
+    background-color: rgba($mantle, 0.4) !important;
+    border: 1px solid $mantle !important;
+    border-left: 5px solid $crimson !important;
+
+    > .admonition-title,
+    > .admonition-header,
+    p.admonition-title {
+      background-color: rgba($mantle, 0.7) !important;
+      color: $paper !important;
+    }
+  }
+
+  // 4. SUCCESS / TIP CALLOUT (Verdant)
+  article.admonition.tip,
+  article.admonition.success,
+  div.admonition.tip,
+  div.admonition.success {
+    background-color: rgba(darken-color($verdant, 3), 0.3) !important;
+    border: 1px solid rgba($verdant, 0.3) !important;
+    border-left: 5px solid $verdant !important;
+
+    > .admonition-title,
+    > .admonition-header,
+    p.admonition-title {
+      background-color: rgba(darken-color($verdant, 2), 0.5) !important;
+      color: lighten-color($verdant, 1) !important;
+    }
+  }
+
+}
+
+#documenter .docs-sidebar { // This makes sidebar have shadow at all displays
+  border-right: none;
+  box-shadow: 1.2*$shadow-size 0rem 1*$shadow-blur $shadow-color;
+
+  form.docs-search > input { // these controls are for the searchbar
+    color: $paper;
+    // NOTE: using $basalt directly, not $documenter-sidebar-background --
+    // that variable is clobbered by this point (see above).
+    background-color: lighten-color($basalt, 1);
+    border-color: lighten-color($basalt, 2);
+    margin-top: 1.0rem;
+    margin-bottom: 1.0rem;
+    &::placeholder {
+      color: $ice; // Ice placeholder text color ("Search here...")
+    }
+  }
+}

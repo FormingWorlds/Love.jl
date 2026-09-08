@@ -2,6 +2,8 @@ using Test
 using LinearAlgebra
 using Obliqua
 using Obliqua.solid1d_mush_relax
+using Obliqua.solid1d_mush_relax.common
+using Obliqua.constants
 
 
 @testset "solid1d_mush_relax Module Tests" begin
@@ -27,8 +29,8 @@ using Obliqua.solid1d_mush_relax
     ω = 1e-4                                  # Angular frequency
     n = 2                                     # Tidal degree
     ρ_core = 7000.0                           # Core density
-    μ_core = 0.0                              # Liquid core shear modulus
-    κ_core = 1e11                             # Core bulk modulus
+    μ_core = complex(0.0)                     # Liquid core shear modulus
+    κ_core = complex(1e11)                    # Core bulk modulus
     M_tot  = 6e24                             # Approximate total mass target
 
     @testset "1. Grid Generation & Gravity Calculations" begin
@@ -97,6 +99,83 @@ using Obliqua.solid1d_mush_relax
         @test size(C1l_m) == (4, 8)
         @test size(D2l_m) == (4, 8)
         @test any(R_mush[1] .!= 0.0)
+    end
+    
+    @testset "Boundary Conditions: get_core_bc!" begin
+        ω, r, ρ, g, μ, K, n = 1.0, 1.0, 1.0, 1.0, complex(1.0), complex(1.0), 2
+        
+        Ic = solid1d_mush_relax.common.get_Ic(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0)
+        B  = solid1d_mush_relax.get_core_bc!(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0)
+        
+        # Check dimensions
+        @test size(B) == (3, 6)
+        
+        # Check linear independence of constraint rows
+        @test rank(B) == 3
+
+        # Check left-nullspace orthogonality constraint: B * Ic ≈ 0
+        @test B * Ic ≈ zeros(ComplexF64, 3, size(Ic, 2)) atol=1e-12
+    end
+
+    @testset "Boundary Conditions: get_core_bc! (mush)" begin
+        ω, r, ρ, g, μ, K, n = 1.0, 1.0, 1.0, 1.0, complex(1.0), complex(1.0), 2
+        
+        Ic = solid1d_mush_relax.common.get_Ic(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0, Y=[1,2,3,4,5,6,7,8])
+        B  = solid1d_mush_relax.get_core_bc!(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0, Y=[1,2,3,4,5,6,7,8])
+        
+        # Check dimensions
+        @test size(B) == (4, 8)
+        
+        # Check linear independence of constraint rows
+        @test rank(B) == 4
+
+        # Check left-nullspace orthogonality constraint: B * Ic ≈ 0
+        @test B * Ic ≈ zeros(ComplexF64, 4, size(Ic, 2)) atol=1e-12
+    end
+
+    @testset "Boundary Conditions: get_core_bc! (inertial)" begin
+        # Mirrors the liquid/solid checks above: dimensions, linear independence of
+        # the constraint rows, and left-nullspace orthogonality B * Ic ~ 0. The
+        # inertial core has two structurally different elementary-solution formulas
+        # (a low-frequency algebraic approximation and a full Bessel-function-based
+        # solution, selected by get_Ic's internal is_low_freq switch), so both code
+        # paths are exercised independently below rather than relying on a single
+        # omega value to happen to hit one of them.
+        # NOTE: this file's @testset blocks do not fully isolate variables from the
+        # enclosing scope (assignment to a name already bound in an enclosing scope
+        # rebinds it there), so every local here uses an "_iner" suffix to avoid
+        # colliding with the outer testset's r/rho/n/omega/etc. fixture variables.
+        r_iner, ρ_iner, g_iner, μ_iner, K_iner, n_iner = 1.0, 1.0, 1.0, complex(1.0), complex(4.0), 2
+
+        @testset "high-frequency / full Bessel branch" begin
+            ω_iner = 1.0  # >> the is_low_freq switch for these parameters; exercises the "else" branch
+
+            Ic = solid1d_mush_relax.common.get_Ic(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0)
+            B  = solid1d_mush_relax.get_core_bc!(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0)
+
+            @test size(B) == (3, 6)
+            @test rank(B) == 3
+            @test B * Ic ≈ zeros(ComplexF64, 3, size(Ic, 2)) atol=1e-10
+
+            # mush (8x8) variant
+            Ic8 = solid1d_mush_relax.common.get_Ic(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0, Y=[1,2,3,4,5,6,7,8])
+            B8  = solid1d_mush_relax.get_core_bc!(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0, Y=[1,2,3,4,5,6,7,8])
+
+            @test size(B8) == (4, 8)
+            @test rank(B8) == 4
+            @test B8 * Ic8 ≈ zeros(ComplexF64, 4, size(Ic8, 2)) atol=1e-10
+        end
+
+        @testset "low-frequency algebraic branch" begin
+            ω_iner = 1e-10  # << the is_low_freq switch for these parameters; exercises the "if" branch
+
+            Ic = solid1d_mush_relax.common.get_Ic(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0)
+            B  = solid1d_mush_relax.get_core_bc!(ω_iner, r_iner, ρ_iner, g_iner, μ_iner, K_iner, "inertial", n_iner; G0=1.0)
+
+            @test size(B) == (3, 6)
+            @test rank(B) == 3
+            @test B * Ic ≈ zeros(ComplexF64, 3, size(Ic, 2)) atol=1e-10
+        end
     end
 
     @testset "3. Layer Propagation Routines" begin
@@ -213,5 +292,108 @@ using Obliqua.solid1d_mush_relax
         )
         @test length(y_t8) == 8
         @test length(y_l8) == 8
+    end
+
+    @testset "6. Physical limit: vanishing melt fraction recovers the pure-elastic solution" begin
+        # Regression test: a mush layer with phi -> 0 (Biot coefficient alongside it)
+        # is physically indistinguishable from an ordinary solid layer, so 
+        # solid1d_mush_relax must reduce continuously to the pure-elastic solid1d_relax
+        # Love numbers as phi shrinks. 
+
+        R_planet_lim = 6.0e6
+        r_core_lim   = 3.0e6
+        radius_lim   = Float64[r_core_lim, 4.0e6, 5.0e6, R_planet_lim]
+
+        rho_lim   = Float64[4500.0, 4200.0, 3800.0]
+        visc_lim  = Float64[1e21, 1e21, 1e19]
+        shear_lim = ComplexF64[6.0e10, 6.0e10, 5.0e10]
+        bulk_lim  = ComplexF64[1.3e11, 1.3e11, 1.1e11]
+        bulkd_lim = copy(bulk_lim)
+
+        gravity_dummy_lim = zeros(Float64, length(rho_lim))
+
+        mcore_lim   = 4/3*pi*r_core_lim^3*1.0e4
+        rhocore_lim = 1.0e4
+        mucore_lim  = ComplexF64(0.0)
+        kcore_lim   = ComplexF64(1.3e11)
+
+        omega_lim = 2.05e-5
+        ndeg_lim  = 2
+        drmin_lim, drmax_lim = 20000, 80000
+
+        # Pure-elastic reference: no mush anywhere.
+        _, _, _, kT_ref_lim, kL_ref_lim = Obliqua.run_solid1d_relax(
+            omega_lim, rho_lim, radius_lim, gravity_dummy_lim, visc_lim, shear_lim, bulk_lim,
+            R_planet_lim, mcore_lim, rhocore_lim, mucore_lim, kcore_lim;
+            dr_min=drmin_lim, dr_max=drmax_lim, n=ndeg_lim, m=2, core="liquid",
+            inertial_terms=false, optimize_scales=false, patch=false
+        )
+
+        function mush_love_numbers_lim(phi_arr, alpha_arr, perm_arr)
+            _, _, _, _, kT, kL = Obliqua.run_solid1d_mush_relax(
+                omega_lim, rho_lim, radius_lim, gravity_dummy_lim, visc_lim, shear_lim, bulk_lim, bulkd_lim,
+                phi_arr, alpha_arr, perm_arr,
+                R_planet_lim, mcore_lim, rhocore_lim, mucore_lim, kcore_lim;
+                dr_min=drmin_lim, dr_max=drmax_lim, n=ndeg_lim, m=2, core="liquid",
+                inertial_terms=false, visc_l=1e2, bulk_l=1e9,
+                porosity_thresh=0.0, optimize_scales=false, patch=false
+            )
+            return kT, kL
+        end
+
+        # A single mush layer placed at three positions, so that each interface
+        # function is exercised on its own: core-adjacent exercises
+        # core_boundary_mush + interface_mush_solid, surface-adjacent exercises
+        # interface_solid_mush + surface_boundary_mush, and mid-mantle exercises both.
+        @testset "core-adjacent mush -> elastic limit" begin
+            phi_lo, alpha_lo, perm_lo = Float64[1e-2,0.0,0.0], ComplexF64[1e-2,0.0,0.0], Float64[1e-14,0.0,0.0]
+            phi_hi, alpha_hi, perm_hi = Float64[1e-6,0.0,0.0], ComplexF64[1e-6,0.0,0.0], Float64[1e-14,0.0,0.0]
+
+            kT_lo, kL_lo = mush_love_numbers_lim(phi_lo, alpha_lo, perm_lo)
+            kT_hi, kL_hi = mush_love_numbers_lim(phi_hi, alpha_hi, perm_hi)
+
+            dT_lo, dL_lo = abs(kT_lo - kT_ref_lim), abs(kL_lo - kL_ref_lim)
+            dT_hi, dL_hi = abs(kT_hi - kT_ref_lim), abs(kL_hi - kL_ref_lim)
+
+            @test dT_hi < 1e-6
+            @test dL_hi < 1e-6
+            # Discriminating check: shrinking phi by four orders of magnitude must
+            # shrink the residual by a comparable factor, ruling out a phi-independent
+            # (structural) closure error rather than just pinning one lucky value.
+            @test dT_hi < dT_lo / 100
+            @test dL_hi < dL_lo / 100
+        end
+
+        @testset "mid-mantle mush -> elastic limit" begin
+            phi_lo, alpha_lo, perm_lo = Float64[0.0,1e-2,0.0], ComplexF64[0.0,1e-2,0.0], Float64[0.0,1e-14,0.0]
+            phi_hi, alpha_hi, perm_hi = Float64[0.0,1e-6,0.0], ComplexF64[0.0,1e-6,0.0], Float64[0.0,1e-14,0.0]
+
+            kT_lo, kL_lo = mush_love_numbers_lim(phi_lo, alpha_lo, perm_lo)
+            kT_hi, kL_hi = mush_love_numbers_lim(phi_hi, alpha_hi, perm_hi)
+
+            dT_lo, dL_lo = abs(kT_lo - kT_ref_lim), abs(kL_lo - kL_ref_lim)
+            dT_hi, dL_hi = abs(kT_hi - kT_ref_lim), abs(kL_hi - kL_ref_lim)
+
+            @test dT_hi < 1e-6
+            @test dL_hi < 1e-6
+            @test dT_hi < dT_lo / 100
+            @test dL_hi < dL_lo / 100
+        end
+
+        @testset "surface-adjacent mush -> elastic limit" begin
+            phi_lo, alpha_lo, perm_lo = Float64[0.0,0.0,1e-2], ComplexF64[0.0,0.0,1e-2], Float64[0.0,0.0,1e-14]
+            phi_hi, alpha_hi, perm_hi = Float64[0.0,0.0,1e-6], ComplexF64[0.0,0.0,1e-6], Float64[0.0,0.0,1e-14]
+
+            kT_lo, kL_lo = mush_love_numbers_lim(phi_lo, alpha_lo, perm_lo)
+            kT_hi, kL_hi = mush_love_numbers_lim(phi_hi, alpha_hi, perm_hi)
+
+            dT_lo, dL_lo = abs(kT_lo - kT_ref_lim), abs(kL_lo - kL_ref_lim)
+            dT_hi, dL_hi = abs(kT_hi - kT_ref_lim), abs(kL_hi - kL_ref_lim)
+
+            @test dT_hi < 1e-6
+            @test dL_hi < 1e-6
+            @test dT_hi < dT_lo / 100
+            @test dL_hi < dL_lo / 100
+        end
     end
 end

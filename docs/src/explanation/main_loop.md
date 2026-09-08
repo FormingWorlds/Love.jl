@@ -11,7 +11,7 @@ type elements in Julia. The interior arrays are then converted to
 Bigfloat, this helps stabilize the solver and allows it to cover even
 large discontinuities.
 
-# Segments
+### Segments
 
 The interior is subdivided into so-called "segments". These segments are
 identified based on their local viscosity, any segment below the
@@ -25,12 +25,12 @@ s. To bridge the region between these models one can either further
 extend the solid formalism, or use the "interp" model in the mush,
 allowing for a more smooth transition in the heating profile.
 
-# Core
+### Core
 
 The code assumes a uniform core. The effects on the local gravity are
 calculated and the density for the fluid density contrast are set.
 
-# $k$-range
+### $k$-range
 
 The tidal potential can be expanded in an infinite sum of spherical
 harmonic terms with some degree $n$, order $m$, and harmonic $k$
@@ -59,7 +59,7 @@ and assumes $k = 1$ for every forcing frequency, while the latter only
 calculates the response at the exact forcing frequencies excited by the
 specific orbital configuration using $K$.
 
-# Forcing frequency
+### Forcing frequency
 
 The forcing frequencies $\sigma$ are simply obtained for every order $m$
 and harmonic $k$ as 
@@ -68,7 +68,7 @@ and harmonic $k$ as
 \sigma = m \Omega - k \omega.
 ```
 
-# Complex shear modulus
+### Complex shear modulus
 
 The frequency response of the mantle is computed assuming a homogeneous
 viscoelastic mantle. Obliqua implements two rheological models: Maxwell

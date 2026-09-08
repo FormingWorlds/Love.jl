@@ -39,7 +39,7 @@ the eigenvalue of the nth degree spherical harmonic, and
 \tilde{\sigma} = \sigma - i \sigma_R.
 ```
 
-## Radially resolved dissipation
+### Radially resolved dissipation
 
 Given that there is no consensus on where in a fluid layer most tidal energy is dissipated, we provide several parameterized radial dissipation profiles. These profiles represent different physical assumptions about how turbulent mixing, wave breaking, or viscous damping distribute tidal energy with depth. The available profiles should be interpreted as idealized parameterizations of where energy is dissipated within the fluid layer.
 

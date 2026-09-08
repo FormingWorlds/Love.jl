@@ -114,15 +114,17 @@ using Obliqua.solid1d
         μ = [complex(1e10), complex(2e10)]
         K = [complex(5e10), complex(6e10)]
         n = 2
-        ρ_core, μ_core, κ_core = 7000.0, 0.0, 1e11
+        ρ_core, μ_core, κ_core = 7000.0, complex(0.0), complex(1e11)
         
-        M, y1_4 = solid1d.compute_M(ω, r, ρ, g, μ, K, n, ρ_core, μ_core, κ_core; core="liquid")
+        M, y1_4 = solid1d.compute_M(ω, r, ρ, g, μ, K, n, ρ_core, μ_core, κ_core, ones(prec, 3); core="liquid")
         
         @test size(M) == (3, 3)
         @test size(y1_4) == (6, 3, 2, 2)
         
+        I6 = Matrix{prec}(I, 6, 6)
+
         # Test linear system resolution for structural displacements
-        y = solid1d.compute_y(r, g, M, y1_4, n; load=false)
+        y = solid1d.compute_y(r, g, M, y1_4, n, I6, ones(prec, 7); load=false)
         @test size(y) == (6, 2, 2)
         @test eltype(y) == ComplexF64
     end

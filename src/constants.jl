@@ -7,7 +7,7 @@ module constants
     export prec, precc
     export ROOT_DIR, RES_DIR, OUT_DIR
     export AU, G, M_Earth
-    export res
+    export res, lat_vals, nlats, nlons, dres, Ω_total
 
     # Set the precision for the entire module. You can switch between different types as needed.
     # const prec  = BigFloat
@@ -33,5 +33,10 @@ module constants
 
     # Define spherical grid resolution
     const res::Float64 = 60.0                    # angular resolution in degrees
+    const lat_vals     = deg2rad.(0:res:180)
+    const nlats        = length(lat_vals)
+    const nlons        = length(0:res:360-0.001)
+    const dres         = deg2rad(res)
+    const Ω_total      = sum(sin.(lat_vals)) * nlons * dres^2
 
 end

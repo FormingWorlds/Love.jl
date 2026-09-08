@@ -1,6 +1,7 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterPages = "3b6f6c89-491e-49ab-a70c-af796c43d097"
+DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
 Obliqua = "70fbf7c6-2f8c-431c-b73b-6bd747db0edf"
 
 [compat]

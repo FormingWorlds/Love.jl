@@ -9,11 +9,11 @@ Other components of the wider PROTEUS ecosystem may be found in the table below:
 | MORS     | Stellar evolution         | [proteus-framework.org/MORS](https://proteus-framework.org/MORS/) |
 | ZEPHYRUS | Hydrodynamic escape       | [proteus-framework.org/ZEPHYRUS](https://proteus-framework.org/ZEPHYRUS/) |
 | CALLIOPE | Volatile outgassing       | [proteus-framework.org/CALLIOPE](https://proteus-framework.org/CALLIOPE/) |
-| AGNI     | RCE climate model         | [proteus-framework.org/AGNI](https://proteus-framework.org/AGNI) |
-| VULCAN   | Chemical kinetics         | [github.com/FormingWorlds/VULCAN](https://github.com/FormingWorlds/VULCAN) |
-| Zalmoxis | Interior structure        | [zalmoxis.readthedocs.io](https://zalmoxis.readthedocs.io/) |
-| Aragog   | Interior dynamics         | [github.com/FormingWorlds/aragog](https://github.com/FormingWorlds/aragog) |
-| SPIDER   | Interior dynamics         | [github.com/djbower/spider](https://github.com/djbower/spider) |
+| AGNI     | RCE climate model         | [h-nicholls.space/AGNI](https://h-nicholls.space/AGNI) |
+| VULCAN   | Chemical kinetics         | [proteus-framework.org/VULCAN](https://proteus-framework.org/VULCAN/) |
+| Zalmoxis | Interior structure        | [proteus-framework.org/Zalmoxis](https://proteus-framework.org/Zalmoxis/) |
+| Aragog   | Interior dynamics         | [proteus-framework.org/Aragog](https://proteus-framework.org/Aragog/) |
+| SPIDER   | Interior dynamics         | [proteus-framework.org/SPIDER](https://proteus-framework.org/SPIDER/) |
 
 
 

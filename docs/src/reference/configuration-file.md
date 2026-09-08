@@ -2,19 +2,13 @@
 CollapsedDocStrings = true
 ```
 
-### Tutorials (2)
+### Reference (0)
 
-# Configuration file
-
-You can read the configuration from a TOML file using the following command:
-
-```julia
-cfg = Obliqua.open_config("$RES_DIR/config/all_options.toml")
-```
+# Configuration
 
 The configuration files follow the conventions used within PROTEUS. The default `all_options.toml` file contains all available parameters.
 
-### Global Parameters
+### Globals
 These define metadata and output behavior:
 * **`title`**: Identifier for the simulation setup.
 * **`version`**: Configuration file version for reproducibility.
@@ -39,16 +33,6 @@ Defines the host star:
 ### Planetary Parameters (`[planet]`)
 Defines the planet's physical properties:
 * **`mass_tot`**: Total planetary mass in Earth masses ($M_\oplus$).
-
----
-
-### Orbital Parameters (`[orbit]`)
-Describes the planetary orbit and optional satellite:
-* **`semimajoraxis`**: Orbital semi-major axis [AU].
-* **`eccentricity`**: Orbital eccentricity.
-* **`satellite`**: Boolean flag to include a moon.
-* **`mass_sat`**: Satellite mass [kg].
-* **`semimajoraxis_sat`**: Satellite orbital radius [m].
 
 ---
 
@@ -87,6 +71,7 @@ Controls the tidal response model.
 * **`solid1d-relax`**: Relaxation-based solver (more stable).
 * **`solid1d-mush`**: Includes partially molten regions.
 * **`solid1d-mush-relax`**: Relaxation-based solver (more stable), includes partially molten regions.
+* **`solid1d-equil-relax`**: Relaxation-based solver (more stable), specifically for equilibrium tides.
 
 #### Mushy Layer (`module_mushy`)
 * **`none`**: No explicit treatment.
@@ -103,6 +88,8 @@ Controls the tidal response model.
 * **`ncalc`**: Number of radial layers (shooting method).
 * **`dr_min`**, **`dr_max`**: Grid spacing for relaxation solver [m].
 * **`core`**: Core boundary condition (`"liquid"`, `"solid"`, `"inertial"`).
+* **`core_props`**: Core properties (shear modulus, bulk modulus) to use for CMB boundary condition (`"core"`, `"mantle"`). 
+* **`inertial_terms`**: Boolean flag to include inertial terms in the motion matrix.
 * **`bulk_l`**: Liquid bulk modulus [Pa].
 * **`dbulk_power`**: Drained bulk modulus powerlaw scaling exponent.
 * **`porosity_thresh`**: Threshold below which no mush is formed.

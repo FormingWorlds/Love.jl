@@ -1,8 +1,11 @@
 using Test
 using Obliqua
 using Obliqua.solid1d_relax
+using Obliqua.solid1d_relax.common
 using LinearAlgebra
 using DoubleFloats
+using Obliqua.constants
+
 
 ROOT_DIR = abspath(joinpath(dirname(abspath(@__FILE__)),"../"))
 RES_DIR         = joinpath(ROOT_DIR,"res/")
@@ -103,19 +106,23 @@ TEST_DIR        = joinpath(ROOT_DIR,"test/")
 
         # Test Load configuration parameters: (U=0, U_prime=1, tau=0, P=0)
         B_l, b_l = solid1d_relax.get_surface_bc!(R_planet, g_surface, n, 0, 1, 0, 0; G0=1.0)
-        @test b_l[4] != 0.0 # Radial stress should change with surface mass load (U_prime=1)
+        @test b_l[3] != complex(0.0) # Radial stress should change with surface mass load (U_prime=1)
     end
 
     @testset "Boundary Conditions: get_core_bc!" begin
-        ω, r, ρ, g, μ, K, n = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2
+        ω, r, ρ, g, μ, K, n = 1.0, 1.0, 1.0, 1.0, complex(1.0), complex(1.0), 2
         
-        B = solid1d_relax.get_core_bc!(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0)
+        Ic = solid1d_relax.get_Ic(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0)
+        B  = solid1d_relax.get_core_bc!(ω, r, ρ, g, μ, K, "liquid", n; G0=1.0)
         
+        # Check dimensions
         @test size(B) == (3, 6)
-        # Assert identity mapping components are structurally placed
-        @test B[1, 1] == 1.0
-        @test B[2, 2] == 1.0
-        @test B[3, 5] == 1.0
+        
+        # Check linear independence of constraint rows
+        @test rank(B) == 3
+
+        # Check left-nullspace orthogonality constraint: B * Ic ≈ 0
+        @test B * Ic ≈ zeros(ComplexF64, 3, size(Ic, 2)) atol=1e-12
     end
 
     @testset "Relaxation Steps: Core, Propagate, and Surface execution loops" begin
@@ -131,7 +138,7 @@ TEST_DIR        = joinpath(ROOT_DIR,"test/")
         R = Vector{Matrix{precc}}(undef, length(r))
         
         # 1. Core boundary processing
-        Cn_l, Dnp_l = solid1d_relax.core_boundary(R, (1, 2), r, ρ, g, μ, K, ω, 1.0, 0.0, 1.0, "liquid", n; G0=1.0)
+        Cn_l, Dnp_l = solid1d_relax.core_boundary(R, (1, 2), r, ρ, g, μ, K, ω, 1.0, complex(0.0), complex(1.0), "liquid", n; G0=1.0)
         @test size(Cn_l) == (3, 6)
         @test size(Dnp_l) == (3, 6)
         @test isassigned(R, 1)
@@ -153,7 +160,7 @@ TEST_DIR        = joinpath(ROOT_DIR,"test/")
         μ = complex.([2.0, 2.1, 2.2])
         K = complex.([3.0, 3.1, 3.2])
         ω, n = 0.5, 2
-        ρ_core, μ_core, κ_core, M_tot = 1.0, 0.0, 1.0, 10.0
+        ρ_core, μ_core, κ_core, M_tot = 1.0, complex(0.0), complex(1.0), 10.0
 
         y_t, y_l = solid1d_relax.compute_y(
             r, ρ, g, μ, K, ω, n, ρ_core, μ_core, κ_core, [r[end], M_tot, G]; core="liquid"

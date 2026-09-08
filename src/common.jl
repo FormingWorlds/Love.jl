@@ -15,7 +15,280 @@ module common
     using LinearAlgebra
     using Optim
 
-    export optimize_scales, Ynm, define_spherical_grid, get_scales, doublefactorial, sbesselj, get_Ic, get_A, get_A!, compute_strain_ten!, compute_darcy_displacement!, compute_pore_pressure!, get_heating_profile, get_heating_map
+    export expand_layers, resample_profiles, get_g, optimize_scales, Ynm, define_spherical_grid, get_scales, doublefactorial, sbesselj, get_Ic, get_A, get_A!, get_surface_bc!, compute_strain_ten!, compute_darcy_displacement!, compute_pore_pressure!, get_heating_profile, get_heating_map
+
+    
+    """
+        expand_layers(r; nr::Int=80)
+
+    Discretize the primary layers given by `r` into `nr` discrete secondary layers.
+
+    Note: exclusively used with shooting method discretization.
+
+    # Arguments
+    - `r::Array{prec,1}`               : 1D array of primary layer boundaries.
+
+    # Keyword Arguments
+    - `nr::Int=80`                        : Number of secondary layers to discretize.
+
+    # Returns
+    - `rs::Array{prec,2}`              : 2D array of secondary layer boundaries/
+    """
+    function expand_layers(r::Array{prec,1}; nr::Int=80)
+        
+        rs = zeros(prec, (nr+1, length(r)-1))
+        
+        for i in 1:length(r)-1
+            rfine = LinRange(r[i], r[i+1], nr+1)
+            rs[:, i] .= rfine[1:end] 
+        end
+    
+        return rs
+    end
+
+
+    """
+        resample_profiles(radius, rho, visc, shear, bulk, m_core, dr_min, dr_max)
+
+    Resample the input profiles onto a new grid with `ncalc` points. The new grid is generated using a 
+    stretched and refined scheme, which allows for better resolution in regions of interest (e.g., near 
+    layer boundaries). 
+
+    Note: exclusively used with relaxation method discretization.
+
+    # Arguments
+    - `radius::Vector{prec}`              : Original radius profile (layer boundaries).
+    - `rho::Vector{prec}`                 : Original density profile (defined at layer centers).
+    - `visc::Vector{prec}`                : Original viscosity profile (defined at layer centers).
+    - `shear::Vector{precc}`              : Original shear modulus profile (defined at layer centers).
+    - `bulk::Vector{precc}`               : Original bulk modulus profile (defined at layer centers).
+    - `m_core::prec`                      : Mass of the core, used for gravity calculations.
+    - `Δr_min::Int64`                     : Minimum grid spacing for the new grid.
+    - `Δr_max::Int64`                     : Maximum grid spacing for the new grid.
+
+    # Returns
+    Tuple of resampled profiles on the new grid:
+    - `r_new_b::Vector{prec}`             : New radius profile at layer boundaries.
+    - `ρ_new::Vector{prec}`               : New density profile at layer centers.
+    - `η_new::Vector{prec}`               : New viscosity profile at layer centers.
+    - `μ_new::Vector{precc}`              : New shear modulus profile at layer centers.
+    - `κ_new::Vector{precc}`              : New bulk modulus profile at layer centers.
+    - `g_new::Vector{prec}`               : New gravity profile at layer centers.
+    - `M_tot::Float64`                    : Total mass enclosed within the outermost layer boundary.
+    """ 
+    function resample_profiles(radius::Vector{prec}, rho::Vector{prec}, visc::Vector{prec}, shear::Vector{precc}, bulk::Vector{precc}, m_core::prec, dr_min::Int64, dr_max::Int64)
+        # setup grids
+        α = log(dr_max / dr_min)
+
+        N = Int(ceil((radius[end] - radius[1]) / dr_min * α / (exp(α) - 1)))
+
+        # indices i = 1:N
+        i = collect(1:N)
+
+        # convert to BigFloat for consistency
+        i_bf = prec.(i)
+        N_bf = prec(N)
+
+        # compute normalized coordinate (N - i)/(N - 1)
+        ξ = (N_bf .- i_bf) ./ (N_bf - 1)
+
+        # compute r_i
+        r_new_b = radius[end] .+ (radius[1] - radius[end]) .* (
+            (exp.(α .* ξ) .- 1) ./ (exp(α) - 1)
+        )
+
+        # cell centers
+        r_new_c = 0.5 .* (r_new_b[1:end-1] .+ r_new_b[2:end])
+
+        # obtain new profiles (Constant per original layer)
+        ρ_new = similar(rho, N-1)
+        η_new = similar(visc, N-1)
+        μ_new = similar(shear, N-1)
+        κ_new = similar(bulk, N-1)
+
+        for i in 1:N-1
+            # find index such that r_b[idx] <= r_new_c[i] < r_b[idx+1]
+            idx = searchsortedfirst(radius, r_new_c[i]) - 1
+            idx = clamp(idx, 1, length(rho)) # Safety clamp
+
+            ρ_new[i] = rho[idx]
+            η_new[i] = visc[idx]
+            μ_new[i] = shear[idx]
+            κ_new[i] = bulk[idx]
+        end
+
+        g_new, M_tot = get_g(r_new_b, ρ_new, m_core) 
+
+        return r_new_b, ρ_new, η_new, μ_new, κ_new, g_new, M_tot
+    end
+
+
+    """
+        resample_profiles(radius, rho, visc, shear, bulk_s, bulk_l, bulk_d, alpha, visc_l, phi, k, m_core, dr_min, dr_max)
+
+    Resample the input profiles onto a new grid with `ncalc` points. The new grid is generated using a 
+    stretched and refined scheme, which allows for better resolution in regions of interest (e.g., near 
+    layer boundaries). 
+
+    Note: exclusively used with relaxation method discretization.
+
+    # Arguments
+    - `radius::Vector{prec}`              : Original radius profile (layer boundaries).
+    - `rho::Vector{prec}`                 : Original density profile (defined at layer centers).
+    - `visc::Vector{prec}`                : Original viscosity profile (defined at layer centers).
+    - `shear::Vector{precc}`              : Original shear modulus profile (defined at layer centers).
+    - `bulk_s::Vector{precc}`             : Original solid bulk modulus profile (defined at layer centers).
+    - `bulk_l::Vector{prec}`              : Original liquid bulk modulus profile (defined at layer centers).
+    - `bulk_d::Vector{precc}`             : Original deep bulk modulus profile (defined at layer centers).
+    - `alpha::Vector{precc}`              : Original alpha profile (defined at layer centers).
+    - `visc_l::Vector{prec}`              : Original liquid viscosity profile (defined at layer centers).
+    - `phi::Vector{prec}`                 : Original phi profile (defined at layer centers).
+    - `m_core::prec`                      : Mass of the core, used for gravity calculations.
+    - `Δr_min::Int64`                     : Minimum grid spacing for the new grid.
+    - `Δr_max::Int64`                     : Maximum grid spacing for the new grid.
+
+    # Returns
+    Tuple of resampled profiles on the new grid:
+    - `r_new_b::Vector{prec}`             : New radius profile at layer boundaries.
+    - `ρ_new::Vector{prec}`               : New density profile at layer centers.
+    - `η_new::Vector{prec}`               : New viscosity profile at layer centers.
+    - `μ_new::Vector{precc}`              : New shear modulus profile at layer centers.
+    - `κs_new::Vector{precc}`             : New solid bulk modulus profile at layer centers.
+    - `κl_new::Vector{prec}`              : New liquid bulk modulus profile at layer centers.
+    - `κd_new::Vector{precc}`             : New deep bulk modulus profile at layer centers.
+    - `α_new::Vector{precc}`              : New alpha profile at layer centers.
+    - `ηl_new::Vector{prec}`              : New liquid viscosity profile at layer centers.
+    - `φ_new::Vector{prec}`               : New phi profile at layer centers.
+    - `k_new::Vector{prec}`               : New k profile at layer centers.
+    - `g_new::Vector{prec}`               : New gravity profile at layer centers.
+    - `M_tot::prec`                       : Total mass of the body, used for non-dimensionalization.
+    """ 
+    function resample_profiles(radius::Vector{prec}, rho::Vector{prec}, visc::Vector{prec}, shear::Vector{precc}, bulk_s::Vector{precc}, bulk_l::Vector{prec}, bulk_d::Vector{precc}, alpha::Vector{precc}, visc_l::Vector{prec}, phi::Vector{prec}, k::Vector{prec}, m_core::prec, dr_min::Int64, dr_max::Int64)
+        # setup grids
+        α = log(dr_max / dr_min)
+
+        N = Int(ceil((radius[end] - radius[1]) / dr_min * α / (exp(α) - 1)))
+
+        # indices i = 1:N
+        i = collect(1:N)
+
+        # convert to prec for consistency
+        i_bf = prec.(i)
+        N_bf = prec(N)
+
+        # compute normalized coordinate (N - i)/(N - 1)
+        ξ = (N_bf .- i_bf) ./ (N_bf - 1)
+
+        # compute r_i
+        r_new_b = radius[end] .+ (radius[1] - radius[end]) .* (
+            (exp.(α .* ξ) .- 1) ./ (exp(α) - 1)
+        )
+
+        # cell centers
+        r_new_c = 0.5 .* (r_new_b[1:end-1] .+ r_new_b[2:end])
+
+        # obtain new profiles (Constant per original layer)
+        ρ_new = similar(rho, N-1)
+        η_new = similar(visc, N-1)
+        μ_new = similar(shear, N-1)
+        κs_new = similar(bulk_s, N-1)
+        κl_new = similar(bulk_l, N-1)
+        κd_new = similar(bulk_d, N-1)
+        α_new = similar(alpha, N-1)
+        ηl_new = similar(visc_l, N-1)
+        φ_new = similar(phi, N-1)
+        k_new = similar(k, N-1)
+
+        for i in 1:N-1
+            # find index such that r_b[idx] <= r_new_c[i] < r_b[idx+1]
+            idx = searchsortedfirst(radius, r_new_c[i]) - 1
+            idx = clamp(idx, 1, length(rho)) # Safety clamp
+
+            ρ_new[i] = rho[idx]
+            η_new[i] = visc[idx]
+            μ_new[i] = shear[idx]
+            κs_new[i] = bulk_s[idx]
+            κl_new[i] = bulk_l[idx]
+            κd_new[i] = bulk_d[idx]
+            α_new[i] = alpha[idx]
+            ηl_new[i] = visc_l[idx]
+            φ_new[i] = phi[idx]
+            k_new[i] = k[idx]
+        end
+
+        g_new, M_tot = get_g(r_new_b, ρ_new, m_core) 
+
+        return r_new_b, ρ_new, η_new, μ_new, κs_new, κl_new, κd_new, α_new, ηl_new, φ_new, k_new, g_new, M_tot
+    end
+
+
+    """
+        get_g(r, ρ, m_core)
+
+    Compute the radial gravity structure associated with a density profile `r` at intervals given by `r`.
+
+    Note: exclusively used with shooting method discretization.
+
+    # Arguments
+    - `r::Array{prec,2}`               : 2D array of layer boundaries. 
+    - `ρ::Array{prec,1}`               : 1D array of layer densities. The length of `ρ` must be equal to the number of columns in `r`.
+    - `m_core::prec`                   : Mass of the core, which is used to compute the gravity at the core boundary.
+
+    # Returns
+    - `g::Array{prec,2}`               : 2D array of gravity values at the layer boundaries. The dimensions of `g` are the same as `r`.
+
+    # Notes
+    `r` must be be a 2D array, with index 1 representing the top radius of secondary layers, and index 2
+    representing the top radius of primary layers. 
+    """
+    function get_g(r::Array{prec,2}, ρ::Array{prec,1}, m_core::prec)
+        g = zeros(prec, size(r))
+        M = zeros(prec, size(r))
+
+        # Base mass enclosed at the inner boundary of the first layer (Core Mass)
+        M[1, 1] = m_core
+
+        # Shell mass incremental calculations
+        for i in 1:size(r, 2)
+            # Shell masses for elements 2:end in layer i
+            M[2:end, i] = (4.0/3.0) * π .* diff(r[:, i].^3) .* ρ[i]
+        end
+
+        # Cumulative mass enclosed at every point in the grid
+        M_enclosed = accumulate(+, M)
+
+        # Gravity g = G * M_enclosed / r^2
+        g .= G .* M_enclosed ./ (r.^2)
+
+        return g
+    end
+
+
+    """
+        get_g(r, ρ, m_core)
+
+    Compute the radial gravity structure associated with a density profile `r` at intervals given by `r`.
+
+    Note: exclusively used with relaxation method discretization.
+    # Arguments
+    - `r::Array{prec,1}`               : 1D array of layer boundaries. 
+    - `ρ::Array{prec,1}`               : 1D array of layer densities. The length of `ρ` must be equal to the number of columns in `r`.
+    - `m_core::prec`                   : Mass of the core.
+
+    # Returns
+    - `g::Array{prec,1}`               : 1D array of gravity values at the layer boundaries. The dimensions of `g` are the same as `r`.
+    - `M_enc::prec`                    : Total mass enclosed within the outermost layer boundary.
+    """
+    function get_g(r::Vector{prec}, ρ::Vector{prec}, m_core::prec)
+
+        dm = 4.0/3.0 * π .* diff(r.^3) .* ρ
+
+        M_enc = cumsum(dm) .+ m_core
+            
+        g = G .* M_enc ./ r[2:end].^2
+
+        return g, M_enc[end]
+    end
 
 
     """
@@ -403,19 +676,56 @@ module common
 
 
     """
-        get_Ic(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::prec, type::String, n::Int; G0::prec=1, Y::Vector{Int}=[1,2,3,4,5,6])
-            
-    Get the core solution vector. This function computes the initial solution vectors at the core-mantle boundary 
-    to serve as starting conditions for numerical integration through a planetary interior. It supports three 
-    distinct physical regimes: a solid (incompressible elastic) core, a liquid (quasi-static inviscid) core, and 
-    an inertial (dynamic compressible fluid) core. 
-    
-    Use Solid for a rigid inner core, Liquid for a quick/stable calculation of a fluid outer core at low tidal 
-    frequencies, and Inertial if you are looking for dynamic resonances or high-frequency tidal interactions where 
-    the sound speed and fluid inertia matter.
+        get_Ic(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, type::String, n::Int; G0::prec=1, Y::Vector{Int}=[1,2,3,4,5,6])
+
+    Core solution basis at the core-mantle boundary: the linearly independent
+    starting vectors for radially integrating the tidal/Love-number ODEs
+    through the overlying mantle.
+
+    # Core types
+
+    - `"solid"`: Static, incompressible, elastic solid core (Love 1911). Valid
+      in the incompressible limit (K -> infinity); K does not enter the
+      formula. All three columns are genuine elementary solutions, regular at
+      r = 0.
+    - `"liquid"`: Static (ω = 0) fluid core. A hydrostatic fluid responds to
+      loading instantaneously, so this is not a continuous solution of the
+      interior ODE but a boundary condition embedding the liquid-solid
+      interface: two columns carry the physical degrees of freedom, and one
+      column is a pure tangential-slip vector (Y[2] = 1, elsewhere 0),
+      representing the discontinuity in horizontal displacement that a fluid
+      core permits.
+    - `"inertial"`: General, oscillating (ω != 0), compressible, finite-μ/K
+      solid core (Takeuchi & Saito 1972; Kervazo et al. 2021). All three
+      columns are genuine elementary solutions, regular at r = 0: one regular
+      power-law solution, and two independent solutions built from spherical
+      Bessel functions (the two roots of the dispersion relation for the
+      radial wavenumber). A solid core has no fluid-solid interface, so —
+      unlike `"liquid"` and `"inertial-liquid"` — none of its columns is a
+      slip vector.
+    - `"inertial-liquid"`: General, oscillating (ω != 0) fluid (μ = 0) core
+      (Takeuchi & Saito 1972; Kervazo et al. 2021; Korenaga 2025). Two columns
+      are genuine elementary solutions (one regular, one Bessel-based); the 
+      third is the tangential-slip vector, as in `"liquid"`.
+
+    # How the core types relate
+
+    - `"solid"` (μ -> 0) reduces to `"liquid"` (ω = 0): incompressible, static
+      elasticity without shear rigidity is a hydrostatic fluid.
+    - `"inertial-liquid"` reduces to `"liquid"` as ω -> 0: a slowly
+      oscillating fluid approaches hydrostatic equilibrium.
+    - `"inertial"` reduces to `"inertial-liquid"` as μ -> 0: an oscillating
+      solid without shear rigidity is an oscillating fluid.
+    - `"inertial"` reduces to `"solid"` as ω -> 0 and K -> infinity: the
+      static, incompressible limit of the general oscillating solid recovers
+      the classical elastic solution.
+
+    Use `"solid"`/`"liquid"` for the static limit, and
+    `"inertial"`/`"inertial-liquid"` when frequency-dependent (dynamic)
+    effects matter.
 
     https://academic.oup.com/gji/article/203/3/2150/2594863
-    
+
     Note: Ordering in Y corresponds to the mapping of the ith element, hence the y-functions order
     
         Y = [1,2,5,3,4,6]
@@ -437,9 +747,9 @@ module common
     - `r::prec`                          : Radius of the core boundary.
     - `ρ::prec`                          : Density of the core.
     - `g::prec`                          : Gravity at the core boundary.
-    - `μ::prec`                          : Shear modulus of the core.
-    - `K::prec`                          : Bulk modulus of the core.
-    - `type::String`                     : Type of core, either "liquid", "inertial", or "solid".
+    - `μ::precc`                         : Shear modulus of the core.
+    - `K::precc`                         : Bulk modulus of the core.
+    - `type::String`                     : Type of core, either "liquid", "inertial", "inertial-liquid", or "solid".
     - `n::Int`                           : Tidal degree.
 
     # Keyword Arguments
@@ -449,7 +759,7 @@ module common
     # Returns
     - `Ic::Array{precc,2}`               : MxN array of linearly independent solutions at the core boundary. These are used as starting vectors for the numerical integration across the interior.
     """
-    function get_Ic(ω::prec, r::prec, ρ::prec, g::prec, μ::prec, K::prec, type::String, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2,3,4,5,6])::Array{precc,2}
+    function get_Ic(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, type::String, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2,3,4,5,6])::Array{precc,2}
     
         M = length(Y)
         N = Int(M / 2)
@@ -461,73 +771,109 @@ module common
             Ic[Y[1],3] = 1.0
             Ic[Y[2],2] = 1.0
             Ic[Y[3],3] = g*ρ
-            Ic[Y[5],1] = r^n
-            Ic[Y[6],1] = 2(n-1)*r^(n-1)
-            Ic[Y[6],3] = 4π * G_norm * ρ
+            Ic[Y[5],1] = -r^n
+            Ic[Y[6],1] = -2(n-1)*r^(n-1)
+            Ic[Y[6],3] = -4π * G_norm * ρ
         elseif type == "inertial"
+            # General finite-mu, finite-K, inertial (omega != 0) solid core solution,
+            # after Kervazo et al. (2021, A&A) Appendix B, Eqs. B.22-B.34, with the
+            # index convention Y[2]<->Y[3] swapped relative to Kervazo's own y2(radial
+            # stress)/y3(tangential displacement V) labels (confirmed against get_A!).
+            #
             # 1. Define physical parameters
             γ = 4π * G_norm * ρ / 3
-            α = sqrt(K / ρ)
-            f = -ω^2 / γ
-            h = f - (n + 1)
-            
-            # 2. Calculate wavenumber k and dimensionless x
-            k2 = (ω^2 + 4γ - n*(n+1)*γ^2 / ω^2) / α^2
+            λ = K - (2/3)*μ
+            α = sqrt(μ / ρ)                 # shear wave speed (Kervazo B.29)
+            β = sqrt((K + (4/3)*μ) / ρ)     # compressional wave speed (Kervazo B.29)
+
+            # 2. Calculate wavenumber k and dimensionless x.
+            # Kervazo's B.29 assigns alpha to the shear speed and beta to the
+            # compressional speed. Their own B.30/B.32 dispersion relation for k^2
+            # and f, however, was carried over unchanged from Takeuchi & Saito
+            # (1972) Eq. 99, whose own caption assigns alpha to the COMPRESSIONAL
+            # speed and beta to shear -- the opposite of B.29. Re-deriving k^2, f
+            # from the momentum equation (get_A! rows 3/4) directly, independent of
+            # either paper's labelling, confirms the T&S/Kervazo B.29 labelling is
+            # the one that must appear in B.30/B.32: alpha and beta are transposed
+            # relative to what Kervazo prints. This is a typo in Kervazo's paper.
+            # Verified numerically: with alpha, beta swapped here 
+            # (and in Y[5]/Y[6] below), the finite-difference residual on the 
+            # radial/tangential stress rows drops from O(1)-O(1e3) to the 
+            # floating-point/finite-difference noise floor (~1e-6 to 1e-11).
+            disc2 = (ω^2/α^2 - (ω^2+4γ)/β^2)^2 + 4*n*(n+1)*γ^2/(α^2*β^2)
+            disc = sqrt(Complex{BigFloat}(disc2))
+            k2 = 0.5*((ω^2+4γ)/β^2 + ω^2/α^2 + disc)      # "+" root -> column 2
             k = sqrt(Complex{BigFloat}(k2))
             x = k * r
-            
-            # 3. First Elementary Solution (Takeuchi & Saito, 1972)
+
+            f = α^2/γ * (k2 - ω^2/α^2)      # Kervazo B.32, alpha/beta corrected (see above)
+            h = f - (n + 1)                 # Kervazo B.32
+
+            k2m = 0.5*((ω^2+4γ)/β^2 + ω^2/α^2 - disc)      # "-" root -> column 3
+            km = sqrt(Complex{BigFloat}(k2m))
+            xm = km * r
+            fm = α^2/γ * (k2m - ω^2/α^2)
+            hm = fm - (n + 1)
+
+            # 3. Third Elementary Solution (Takeuchi & Saito 1972, Eq. 100 -- the
+            # k^2->0 degenerate/regular solution). 
             Ic[Y[1],1] = n * r^(n-1)
             Ic[Y[2],1] = r^(n-1)
-            Ic[Y[3],1] = 0.0
-            Ic[Y[4],1] = 0.0
-            Ic[Y[5],1] = -(n*γ - ω^2) * r^n
-            Ic[Y[6],1] = -(2*(n-1)*n*γ - (2*n + 1)*ω^2) * r^(n-1)
+            Ic[Y[3],1] = 2μ * n * (n-1) * r^(n-2)
+            Ic[Y[4],1] = 2μ * (n-1) * r^(n-2)
+            Ic[Y[5],1] = (n*γ - ω^2) * r^n
+            Ic[Y[6],1] = (2*(n-1)*n*γ - (2*n + 1)*ω^2) * r^(n-1)
 
-            # 4. Second Elementary Solution (Stability Switching)
-            # Condition: 4ω^2 << n(n+1)γ
-            is_low_freq = (4 * ω^2) < 0.00001 * (n * (n+1) * γ)
+            # 4. Second Elementary Solution (Kervazo B.23-B.28, general finite-mu,K)
+            # Scaled Analytical Solution: divided by j_n(x) to prevent numerical
+            # overflow. sbesselj wraps SpecialFunctions.besselj, which is numerically
+            # stable across the physically relevant range of x, so no separate
+            # small-x/low-frequency branch is required.
+            @info("Using full inertial solution for core boundary conditions.")
+            jn = sbesselj(n, x)
+            jnp1 = sbesselj(n+1, x)
 
-            if is_low_freq
-                @info("Using low-frequency approximation for inertial core boundary conditions.")
-                # Use the Simplified Algebraic Form
-                zn = x^2 / (2n + 3) 
-                
-                Ic[Y[1],2] = -r^(n+1) * (f * zn - n * h)
-                Ic[Y[2],2] = r^(n+1) * (zn + h)
-                Ic[Y[3],2] = -K * f * r^n * x^2  
-                Ic[Y[4],2] = 0.0
-                Ic[Y[5],2] = -3γ * f * r^(n+2)
-                Ic[Y[6],2] = -3γ * ((2n+1)*f - n*h) * r^(n+1)
-            else
-                @info("Using full inertial solution for core boundary conditions.")
-                # Use the Scaled Analytical Solution
-                # Divided by j_n(x) to prevent numerical overflow
-                jn = sbesselj(n, x)
-                jnp1 = sbesselj(n+1, x)
-                
-                zn = x * jnp1 / jn
-                ϕl_scaled = doublefactorial(2n+1) / x^n 
-                ψl_scaled = 2*(2n+3)/x^2 * (1/jn - ϕl_scaled)
-                ϕlp1_scaled = (doublefactorial(2n+3) / x^(n+1)) * (jnp1 / jn)
-                
-                pref = -r^(n+1) / (2n + 3)
+            ϕl_scaled = doublefactorial(2n+1) / x^n
+            ψl_scaled = 2*(2n+3)/x^2 * (1/jn - ϕl_scaled)
+            ϕlp1_scaled = (doublefactorial(2n+3) / x^(n+1)) * (jnp1 / jn)
 
-                Ic[Y[1],2] = pref * (0.5 * n * h * ψl_scaled + f * ϕlp1_scaled)
-                Ic[Y[2],2] = pref * (0.5 * h * ψl_scaled - ϕlp1_scaled)
-                Ic[Y[3],2] = -K * r^n * f * ϕl_scaled
-                Ic[Y[4],2] = 0.0
-                Ic[Y[5],2] = -r^(n+2) * ((α^2 * f / r^2) * (1/jn) - (3γ*f / (2*(2n+3))) * ψl_scaled)
-                Ic[Y[6],2] = -r^(n+1) * (((2n+1)*α^2*f / r^2) * (1/jn) - (3γ*((2n+1)*f - n*h) / (2*(2n+3))) * ψl_scaled)
-            end
+            pref = -r^(n+1) / (2n + 3)
 
-            # 5. Boundary Condition Column
-            Ic[:,3] .= 0.0
-            Ic[Y[2],3] = 1.0 # tangential slip at CMB
-            
+            Ic[Y[1],2] = pref * (0.5 * n * h * ψl_scaled + f * ϕlp1_scaled)
+            Ic[Y[2],2] = pref * (0.5 * h * ψl_scaled - ϕlp1_scaled)
+            Ic[Y[3],2] = (-(λ + 2μ) * r^n * f * ϕl_scaled
+                          + μ * r^n / (2n+3) * (-n*(n-1)*h*ψl_scaled + 2*(2*f + n*(n+1))*ϕlp1_scaled))
+            Ic[Y[4],2] = μ * r^n * (ϕl_scaled - 1/(2n+3) * ((n-1)*h*ψl_scaled + 2*(f+1)*ϕlp1_scaled))
+            # Takeuchi & Saito (1972) Eq. 102's y5 has a bare (non-Bessel) term
+            # -(n+1)*(shear speed)^2/r^2 in addition to (compressional speed)^2*f/r^2
+            Ic[Y[5],2] = r^(n+2) * (((β^2*f - (n+1)*α^2) / r^2) * (1/jn) - (3γ*f / (2*(2n+3))) * ψl_scaled)
+            Ic[Y[6],2] = r^(n+1) * ((((2n+1)*(β^2*f - (n+1)*α^2)) / r^2) * (1/jn) - (3γ*((2n+1)*f - n*h) / (2*(2n+3))) * ψl_scaled)
+
+            # 5. Third Elementary Solution (Kervazo B.23-B.28, "-" root of B.30).
+            # A genuinely solid (elastic, finite mu) core has no fluid-solid
+            # interface, so there is no physical tangential-slip surface to
+            # embed here (unlike "liquid"/"inertial-liquid", whose third column
+            # IS that slip vector) -- the correct third basis vector is instead
+            # this second, independent Bessel elementary solution. 
+            jnm = sbesselj(n, xm)
+            jnp1m = sbesselj(n+1, xm)
+
+            ϕl_scaled_m = doublefactorial(2n+1) / xm^n
+            ψl_scaled_m = 2*(2n+3)/xm^2 * (1/jnm - ϕl_scaled_m)
+            ϕlp1_scaled_m = (doublefactorial(2n+3) / xm^(n+1)) * (jnp1m / jnm)
+
+            pref_m = -r^(n+1) / (2n + 3)
+
+            Ic[Y[1],3] = pref_m * (0.5 * n * hm * ψl_scaled_m + fm * ϕlp1_scaled_m)
+            Ic[Y[2],3] = pref_m * (0.5 * hm * ψl_scaled_m - ϕlp1_scaled_m)
+            Ic[Y[3],3] = (-(λ + 2μ) * r^n * fm * ϕl_scaled_m
+                          + μ * r^n / (2n+3) * (-n*(n-1)*hm*ψl_scaled_m + 2*(2*fm + n*(n+1))*ϕlp1_scaled_m))
+            Ic[Y[4],3] = μ * r^n * (ϕl_scaled_m - 1/(2n+3) * ((n-1)*hm*ψl_scaled_m + 2*(fm+1)*ϕlp1_scaled_m))
+            Ic[Y[5],3] = r^(n+2) * (((β^2*fm - (n+1)*α^2) / r^2) * (1/jnm) - (3γ*fm / (2*(2n+3))) * ψl_scaled_m)
+            Ic[Y[6],3] = r^(n+1) * ((((2n+1)*(β^2*fm - (n+1)*α^2)) / r^2) * (1/jnm) - (3γ*((2n+1)*fm - n*hm) / (2*(2n+3))) * ψl_scaled_m)
+
             # 6. Column-wise Normalization (Brings vectors to unit length)
-            # Uses LinearAlgebra's norm. To bound the maximum element to exactly 1 instead, 
-            # change `norm(view(Ic, :, col))` to `maximum(abs, view(Ic, :, col))`
+            # Uses LinearAlgebra's norm. 
             for col in 1:3
                 col_norm = norm(view(Ic, :, col))
                 if col_norm > 0.0
@@ -539,27 +885,99 @@ module common
             @debug("Rank of Ic for inertial core: ", rank(Ic))
             @debug("Condition number of Ic for inertial core: ", cond(Ic))
 
+        elseif type == "inertial-liquid"
+            # Fluid-core (mu=0) inertial (omega != 0) solid core solution, after
+            # Korenaga (2025, Icarus) Appendix B, Eqs. B.4-B.12 (the oscillating
+            # homogeneous fluid sphere solution of Love 1911 / Takeuchi & Saito
+            # 1972, in Sabadini et al. 2016 notation). A sign flip on Y[5]/Y[6] 
+            # (Phi/Psi) is required, since Korenaga's sign convention for those 
+            # two components is the opposite of Obliqua's (confirmed numerically 
+            # against get_A!).
+            #
+            # 1. Define physical parameters (K only: mu=0 identically in this branch)
+            γ = 4π * G_norm * ρ / 3
+            α = sqrt(K / ρ)                 # Korenaga's alpha: fluid compressional speed
+            f = -ω^2 / γ                    # Korenaga B.8
+            h = f - (n + 1)                 # Korenaga B.9
+
+            # 2. Calculate wavenumber k and dimensionless x (Korenaga B.7)
+            k2 = (ω^2 + 4γ - n*(n+1)*γ^2 / ω^2) / α^2
+            k = sqrt(Complex{BigFloat}(k2))
+            x = k * r
+
+            # 3. Third Elementary Solution (Takeuchi & Saito 1972, Eq. 100 -- the
+            # k^2->0 degenerate/regular solution). Y[3],Y[4] vanish here because
+            # mu=0 identically in this branch (Korenaga B.4 is the mu=0 special
+            # case of the same formula; verified exactly against get_A!).
+            Ic[Y[1],1] = n * r^(n-1)
+            Ic[Y[2],1] = r^(n-1)
+            Ic[Y[3],1] = 2μ * n * (n-1) * r^(n-2)
+            Ic[Y[4],1] = 2μ * (n-1) * r^(n-2)
+            Ic[Y[5],1] = (n*γ - ω^2) * r^n
+            Ic[Y[6],1] = (2*(n-1)*n*γ - (2*n + 1)*ω^2) * r^(n-1)
+
+            # 4. Second Elementary Solution (Korenaga B.5, fluid mu=0)
+            # Scaled Analytical Solution: divided by j_n(x) to prevent numerical
+            # overflow (sbesselj wraps SpecialFunctions.besselj, numerically stable
+            # across the physically relevant range of x).
+            @info("Using full inertial-liquid solution for core boundary conditions.")
+            jn = sbesselj(n, x)
+            jnp1 = sbesselj(n+1, x)
+
+            ϕl_scaled = doublefactorial(2n+1) / x^n
+            ψl_scaled = 2*(2n+3)/x^2 * (1/jn - ϕl_scaled)
+            ϕlp1_scaled = (doublefactorial(2n+3) / x^(n+1)) * (jnp1 / jn)
+
+            pref = -r^(n+1) / (2n + 3)
+
+            Ic[Y[1],2] = pref * (0.5 * n * h * ψl_scaled + f * ϕlp1_scaled)
+            Ic[Y[2],2] = pref * (0.5 * h * ψl_scaled - ϕlp1_scaled)
+            Ic[Y[3],2] = -K * r^n * f * ϕl_scaled
+            Ic[Y[4],2] = 0.0
+            Ic[Y[5],2] = r^(n+2) * ((α^2 * f / r^2) * (1/jn) - (3γ*f / (2*(2n+3))) * ψl_scaled)
+            Ic[Y[6],2] = r^(n+1) * (((2n+1)*α^2*f / r^2) * (1/jn) - (3γ*((2n+1)*f - n*h) / (2*(2n+3))) * ψl_scaled)
+
+            # 5. Boundary Condition Column
+            Ic[:,3] .= 0.0
+            Ic[Y[2],3] = 1.0 # tangential slip at CMB
+
+            # 6. Column-wise Normalization (Brings vectors to unit length)
+            for col in 1:3
+                col_norm = norm(view(Ic, :, col))
+                if col_norm > 0.0
+                    Ic[:, col] ./= col_norm
+                end
+            end
+
+            @debug("Rank of Ic for inertial-liquid core: ", rank(Ic))
+            @debug("Condition number of Ic for inertial-liquid core: ", cond(Ic))
+
         elseif type == "solid"
             # First column
             Ic[Y[1], 1] = n*r^( n+1 ) / ( 2*( 2n + 3) )
             Ic[Y[2], 1] = ( n+3 )*r^( n+1 ) / ( 2*( 2n+3 ) * ( n+1 ) )
             Ic[Y[3], 1] = ( n*ρ*g*r + 2*( n^2 - n - 3)*μ ) * r^n / ( 2*( 2n + 3) )
             Ic[Y[4], 1] = n *( n+2 ) * μ * r^n / ( ( 2n + 3 )*( n+1 ) )
-            Ic[Y[6], 1] = 2π*G_norm*ρ*n*r^( n+1 ) / ( 2n + 3 )
+            Ic[Y[6], 1] = -2π*G_norm*ρ*n*r^( n+1 ) / ( 2n + 3 )
 
             # Second column
             Ic[Y[1], 2] = r^( n-1 )
             Ic[Y[2], 2] = r^( n-1 ) / n
             Ic[Y[3], 2] = ( ρ*g*r + 2*( n-1 )*μ ) * r^( n-2 )
             Ic[Y[4], 2] = 2*( n-1 ) * μ * r^( n-2 ) / n
-            Ic[Y[6], 2] = 4π*G_norm*ρ*r^( n-1 )
+            Ic[Y[6], 2] = -4π*G_norm*ρ*r^( n-1 )
 
             # Third column
             Ic[Y[3], 3] = -ρ * r^n
-            Ic[Y[5], 3] = -r^n
-            Ic[Y[6], 3] = -( 2n + 1) * r^( n-1 )
+            Ic[Y[5], 3] = r^n
+            Ic[Y[6], 3] = ( 2n + 1) * r^( n-1 )
         else
-            error("Invalid core type: $type. Must be 'liquid', 'inertial', or 'solid'.")
+            error("Invalid core type: $type. Must be 'liquid', 'inertial', 'inertial-liquid', or 'solid'.")
+        end
+
+        # Non-zero pore pressure and zero radial Darcy flux
+        if M == 8
+            Ic[Y[7], 4] = 1.0
         end
 
         return Ic
@@ -567,35 +985,40 @@ module common
 
 
     """
-        get_A(ω, r, ρ, g, K, n; G0=1, Y=[1,2,3,4])
+        get_A(ω, r, ρ, g, n; G0=1, Y=[1,2])
 
-    Compute the 4x4 `A` matrix in the ODE for the fluid-body problem.
+    Compute the 2x2 `A` matrix in the ODE for the equilibrium-(fluid)-body problem.
+    This is a simplified version of the A matrix used for the fluid-body problem, where 
+    shear and bulk moduli are assumed zero, as well as forcing frequency ω is zero.
+
+    The formulation is based on the work of Saito 1974, and reduces to the Love 1911
+    formulation for the tidal response of a homogeneous fluid body. Note, this model 
+    does apply to inhomogeneous fluid bodies, as the density and gravity can vary with radius.
 
     # Arguments
     - `ω::prec`                          : Forcing frequency of the tidal forcing.
     - `r::prec`                          : Radius at which to compute the A matrix.
     - `ρ::prec`                          : Density at radius r.
     - `g::prec`                          : Gravity at radius r.
-    - `K::precc`                         : Bulk modulus at radius r.
     - `n::Int`                           : Tidal degree.
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
-    - `Y::Vector{Int}=[1,2,3,4]`         : Ordering of the solution vector components. This allows for different conventions in the literature.
+    - `Y::Vector{Int}=[1,2]`             : Ordering of the solution vector components. This allows for different conventions in the literature.
 
     # Returns
-    - `A::Array{precc,2}`               : 4x4 A matrix at radius r, which is used in the ODE for the fluid-body problem.
+    - `A::Array{precc,2}`               : 2x2 A matrix at radius r, which is used in the ODE for the equilibrium-(fluid)-body problem.
     """
-    function get_A(ω::prec, r::prec, ρ::prec, g::prec, K::precc, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2,3,4])::Array{precc,2}
+    function get_A(r::prec, ρ::prec, g::prec, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2])::Array{precc,2}
         M = length(Y)
         A = zeros(precc, M, M) 
-        get_A!(A, ω, r, ρ, g, K, n; G0=G0, Y=Y)
+        get_A!(A, r, ρ, g, n; G0=G0, Y=Y)
         return A
     end
 
 
     """
-        get_A(ω, r, ρ, g, μ, K, n; G0=1, λ=nothing, Y=[1,2,3,4,5,6])
+        get_A(ω, r, ρ, g, μ, K, n; G0=1, inertial_terms=false, λ=nothing, Y=[1,2,3,4,5,6])
 
     Compute the 6x6 `A` matrix in the ODE for the solid-body problem.
 
@@ -610,22 +1033,23 @@ module common
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=false`       : Whether to include inertial terms in the motion matrix.
     - `λ::prec=nothing`                  : Lamé's first parameter at radius r. If not provided, it is computed as λ = K - 2μ/3.
     - `Y::Vector{Int}=[1,2,3,4,5,6]`     : Ordering of the solution vector components. This allows for different conventions in the literature.
 
     # Returns
     - `A::Array{precc,2}`               : 6x6 A matrix at radius r, which is used in the ODE for the solid-body problem.
     """
-    function get_A(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, n::Int; G0::prec=prec(1.0), λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6])::Array{precc,2}
+    function get_A(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, n::Int; G0::prec=prec(1.0), inertial_terms::Bool=false, λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6])::Array{precc,2}
         M = length(Y)
         A = zeros(precc, M, M) 
-        get_A!(A, ω, r, ρ, g, μ, K, n; G0=G0, λ=λ, Y=Y)
+        get_A!(A, ω, r, ρ, g, μ, K, n; G0=G0, inertial_terms=inertial_terms, λ=λ, Y=Y)
         return A
     end
 
     
     """
-        get_A(ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, λ=nothing, Y=[1,2,3,4,5,6,7,8])
+        get_A(ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, inertial_terms=false, λ=nothing, Y=[1,2,3,4,5,6,7,8])
 
     Compute the 8x8 `A` matrix in the ODE for the two-phase problem. These correspond to 
     the coefficients given in Equation S4.6 in Hay et al., (2025).
@@ -648,6 +1072,7 @@ module common
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=false`       : Whether to include inertial terms in the motion matrix.
     - `λ::precc=nothing`                 : Lamé's first parameter at radius r. If not provided, it is computed as λ = K - 2μ/3.
     - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]` : Ordering of the solution vector components. This allows for different conventions in the literature.
 
@@ -656,60 +1081,45 @@ module common
 
     See also [`get_A!`](@ref)
     """
-    function get_A(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, ρₗ::prec, Kl::prec, Kd::precc, α::precc, ηₗ::prec, ϕ::prec, k::prec, n::Int; G0::prec=1, λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6,7,8])
+    function get_A(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, ρₗ::prec, Kl::prec, Kd::precc, α::precc, ηₗ::prec, ϕ::prec, k::prec, n::Int; G0::prec=1, inertial_terms::Bool=false, λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6,7,8])
         A = zeros(precc, 8, 8)
-        get_A!(A, ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=G0, λ=λ, Y=Y)
+        get_A!(A, ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=G0, inertial_terms=inertial_terms, λ=λ, Y=Y)
         return A
     end
 
 
     """
-        get_A!(A, ω, r, ρ, g, K, n; G0=1, Y=[1,2,3,4])
+        get_A!(A, ω, r, ρ, g, n; G0=1, Y=[1,2])
 
-    Compute the 4x4 `A` matrix in the ODE for the fluid-body problem. These correspond to 
-    the coefficients given in Korenaga, (2025) Eq. 12.
+    Compute the 2x2 `A` matrix in the ODE for the fluid-body problem. These correspond to 
+    the coefficients given in Saito 1974 Eq. 18.
 
     # Arguments
-    - `A::Array{precc,2}`                : 4x4 A matrix at radius r, which is used in the ODE for the fluid-body problem.
+    - `A::Array{precc,2}`                : 2x2 A matrix at radius r, which is used in the ODE for the fluid-body problem.
     - `ω::prec`                          : Forcing frequency of the tidal forcing.
     - `r::prec`                          : Radius at which to compute the A matrix.
     - `ρ::prec`                          : Density at radius r.
     - `g::prec`                          : Gravity at radius r.
-    - `K::precc`                         : Bulk modulus at radius r.
     - `n::Int`                           : Tidal degree.
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
-    - `Y::Vector{Int}=[1,2,3,4]`         : Ordering of the solution vector components. This allows for different conventions in the literature.
+    - `Y::Vector{Int}=[1,2]`             : Ordering of the solution vector components. This allows for different conventions in the literature.
     """
-    function get_A!(A::Matrix, ω::prec, r::prec, ρ::prec, g::prec, K::precc, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2,3,4])
-       
+    function get_A!(A::Matrix, r::prec, ρ::prec, g::prec, n::Int; G0::prec=prec(1.0), Y::Vector{Int}=[1,2])
         G_norm = G / G0
-
         r_inv = 1.0/r
 
-        A[Y[1],Y[1]] = -2/r + n*(n+1)*g / (r^2 * ω^2)
-        A[Y[2],Y[1]] = -4*ρ*g*r_inv - ρ*ω^2 + n*(n+1)*g^2 / (r^2 * ω^2)
-        A[Y[3],Y[1]] = 4π * G_norm * ρ
-        A[Y[4],Y[1]] = 4π * G_norm * ρ * (n+1) * (r_inv - n*g / (r^2 * ω^2))
+        A[Y[1],Y[1]] = 4π*G_norm*ρ/g - (n+1)*r_inv
+        A[Y[1],Y[2]] = 1
 
-        A[Y[1],Y[2]] = 1/K - n*(n+1) / (r^2 * ρ * ω^2)
-        A[Y[2],Y[2]] = - n*(n+1)*g / (r^2 * ω^2)
-        A[Y[4],Y[2]] = 4π * G_norm * n*(n+1) / (r^2 * ω^2)
-
-        A[Y[1],Y[3]] = -n*(n+1) / (r^2 * ω^2)
-        A[Y[2],Y[3]] = ρ*(n+1)*r_inv + n*(n+1)*ρ*g / (r^2 * ω^2)
-        A[Y[3],Y[3]] = -(n+1)*r_inv
-        A[Y[4],Y[3]] = 4π * G_norm * ρ * n*(n+1) / (r^2 * ω^2)
-
-        A[Y[2],Y[4]] = -ρ
-        A[Y[3],Y[4]] = 1.0
-        A[Y[4],Y[4]] = (n-1)*r_inv
+        A[Y[2],Y[1]] = 2*(n-1)*r_inv * 4π*G_norm*ρ/g
+        A[Y[2],Y[2]] = (n-1)*r_inv - 4π*G_norm*ρ/g
     end
 
 
     """
-        get_A!(A, ω, r, ρ, g, μ, K, n; G0=1, λ=nothing, Y=[1,2,3,4,5,6])
+        get_A!(A, ω, r, ρ, g, μ, K, n; G0=1, inertial_terms=false, λ=nothing, Y=[1,2,3,4,5,6])
 
     Compute the 6x6 `A` matrix in the ODE for the solid-body problem. These correspond to 
     the coefficients given in Equation S4.6 in Hay et al., (2025) when α=φ=0, as well as Sabadini and Vermeersen 
@@ -727,10 +1137,11 @@ module common
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=false`       : Whether to include inertial terms in the motion matrix.
     - `λ::precc=nothing`                 : Lamé's first parameter at radius r. If not provided, it is computed as λ = K - 2μ/3.
     - `Y::Vector{Int}=[1,2,3,4,5,6]`     : Ordering of the solution vector components. This allows for different conventions in the literature.
     """
-    function get_A!(A::Matrix, ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, n::Int; G0::prec=prec(1.0), λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6])
+    function get_A!(A::Matrix, ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, n::Int; G0::prec=prec(1.0), inertial_terms::Bool=false, λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6])
         if isnothing(λ)
             λ = K - 2μ/3
         end
@@ -743,19 +1154,19 @@ module common
 
         A[Y[1],Y[1]] = -2λ * r_inv*β_inv
         A[Y[2],Y[1]] = -r_inv
-        A[Y[3],Y[1]] = 4r_inv * (3K*μ*r_inv*β_inv - ρ*g) - ω^2 * ρ 
-        A[Y[4],Y[1]] = -r_inv * (6K*μ*r_inv*β_inv - ρ*g )
+        A[Y[3],Y[1]] = 4r_inv * (3K*μ*r_inv*β_inv - ρ*g)
+        A[Y[4],Y[1]] = -r_inv * (6K*μ*r_inv*β_inv - ρ*g)
         A[Y[5],Y[1]] = 4π * G_norm * ρ
         A[Y[6],Y[1]] = 4π*(n+1)*G_norm*ρ*r_inv
 
         A[Y[1],Y[2]] = n*(n+1) * λ * r_inv*β_inv
         A[Y[2],Y[2]] = r_inv
-        A[Y[3],Y[2]] = -n*(n+1)*r_inv * (6K*μ*r_inv*β_inv - ρ*g ) 
-        A[Y[4],Y[2]] = 2μ*r_inv^2 * (n*(n+1)*(1 + λ*β_inv) - 1.0 ) - ω^2 * ρ 
+        A[Y[3],Y[2]] = -n*(n+1)*r_inv * (6K*μ*r_inv*β_inv - ρ*g) 
+        A[Y[4],Y[2]] = 2μ*r_inv^2 * (n*(n+1)*(1 + λ*β_inv) - 1.0)
         A[Y[6],Y[2]] = -4π*n*(n+1)*G_norm*ρ*r_inv
 
         A[Y[1],Y[3]] = β_inv
-        A[Y[3],Y[3]] = r_inv*β_inv * (-4μ )
+        A[Y[3],Y[3]] = r_inv*β_inv * (-4μ)
         A[Y[4],Y[3]] = -λ * r_inv*β_inv
         
         A[Y[2],Y[4]] = 1.0 / μ
@@ -769,11 +1180,16 @@ module common
         A[Y[3],Y[6]] = -ρ
         A[Y[5],Y[6]] = 1.0
         A[Y[6],Y[6]] = (n-1)r_inv
+
+        if inertial_terms
+            A[Y[3],Y[1]] -= ω^2 * ρ
+            A[Y[4],Y[2]] -= ω^2 * ρ
+        end
     end
 
 
     """
-        get_A!(A, ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, λ=nothing, Y=[1,2,3,4,5,6,7,8])
+        get_A!(A, ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, inertial_terms=false, λ=nothing, Y=[1,2,3,4,5,6,7,8])
 
     Compute the 8x8 `A` matrix in the ODE for the two-phase problem. These correspond to 
     the coefficients given in Equation S4.6 in Hay et al., (2025).
@@ -797,18 +1213,19 @@ module common
 
     # Keyword Arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=false`       : Whether to include inertial terms in the motion matrix.
     - `λ::precc=nothing`                 : Lamé's first parameter at radius r. If not provided, it is computed as λ = K - 2μ/3.
     - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]` : Ordering of the solution vector components. This allows for different conventions in the literature.
 
     # Notes
     See also [`get_A`](@ref)
     """
-    function get_A!(A::Matrix, ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, ρₗ::prec, Kl::prec, Kd::precc, α::precc, ηₗ::prec, ϕ::prec, k::prec, n::Int; G0::prec=prec(1.0), λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6,7,8])
+    function get_A!(A::Matrix, ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, ρₗ::prec, Kl::prec, Kd::precc, α::precc, ηₗ::prec, ϕ::prec, k::prec, n::Int; G0::prec=prec(1.0), inertial_terms::Bool=false, λ::Union{Nothing, precc}=nothing, Y::Vector{Int}=[1,2,3,4,5,6,7,8])
         λ = Kd .- 2μ/3       # Lame's second param, which uses the drained compaction modulus
         S = ϕ/Kl + (α - ϕ)/K # Storavity, which uses liquid and solid grain bulk moduli  
 
         # First add the solid-body coefficients, but using drained moduli. 
-        get_A!(A, ω, r, ρ, g, μ, Kd, n; λ=λ, G0=G0, Y=Y)    # Note that here we replace the bulk modulus with the compaction modulus
+        get_A!(A, ω, r, ρ, g, μ, Kd, n; λ=λ, G0=G0, inertial_terms=inertial_terms, Y=Y)    # Note that here we replace the bulk modulus with the compaction modulus
 
         r_inv = 1.0/r
         β_inv = 1.0/(2μ + λ)
@@ -850,6 +1267,105 @@ module common
             A[Y[8],Y[8]] = 1im * k *ρₗ*g *n*(n+1) / (ω*ϕ*ηₗ)*r_inv^2  - 2r_inv 
         end
 
+    end
+
+
+    """
+        get_surface_bc!(R, g, n, U, U_prime, tau, P; G0=1, Y=[1,2,3,4,5,6])
+
+    Get the surface boundary condition vector `b` and matrix `BN` for the solid-body problem. The surface 
+    boundary conditions are determined by setting, respectively (U, U', tau, P) to (1,0,0,0) for tidal Love 
+    number and (0,1,0,0) for load Love number in system.
+
+    https://hal.science/hal-03421553/document
+
+    # Arguments
+    - `R::prec`                          : Planetary radius, used for surface boundary conditions.
+    - `g::prec`                          : Gravity at the surface, used for surface boundary conditions.
+    - `n::Int`                           : Tidal degree.
+    - `U::Int`                           : Tidal potential at the surface.
+    - `U_prime::Int`                     : Radial derivative of the tidal potential at the surface.
+    - `tau::Int`                         : Tangential tidal stress at the surface.
+    - `P::Int`                           : Surface mass load at the surface.
+
+    # Keyword Arguments
+    - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `Y::Vector{Int}=[1,2,3,4,5,6]`     : Indices for the state variables (default is for standard case).
+
+    # Returns
+    - `B::Array{precc,2}`                : NxM matrix representing the linear relationship between the state variables at the surface and the boundary conditions.
+    - `b::Vector{precc}`                 : Vector of length M representing the inhomogeneous part of the surface boundary conditions.
+    """
+    function get_surface_bc!(R::prec, g::prec, n::Int, U::Int, U_prime::Int, tau::Int, P::Int; G0=1, Y=[1,2,3,4,5,6])
+        
+        M = length(Y)
+        N = Int(M / 2)
+
+        # b vector (Right Hand Side of the B*y = b system)
+        b = zeros(precc, M) 
+        
+        y2 = -(2 * n + 1) * g / (4 * pi * R^2) * U_prime - P
+        y4 = tau
+        y6 = ((2 * n + 1) / R) * (U + G/G0 / R * U_prime)
+        y8 = 0
+
+        if M == 8
+            # radial Stress y3
+            b[Y[3]] = y2
+            
+            # tangential Stress y4
+            b[Y[4]] = y4
+            
+            # potential Stress y6
+            b[Y[6]] = y6
+            
+            # darcy flux boundary
+            b[Y[8]] = y8
+        elseif M == 6
+            # radial Stress y3
+            b[Y[3]] = y2
+            
+            # tangential Stress y4
+            b[Y[4]] = y4
+            
+            # potential Stress y6
+            b[Y[6]] = y6
+        elseif M == 2
+            # helper y7 = y6 + 4πG/g y2
+            b[Y[2]] = y6 + (4 * pi * G/G0 / g) * y2
+        else
+            error("Unsupported M value. M should be either 6 or 8.")
+        end
+        
+        # construct the 4x8 B matrix
+        # this matrix extracts y3, y4, and y6
+        B = zeros(precc, N, M)
+
+        if M == 8
+            # stress components
+            B[1, Y[3]] = 1.0  # radial stress y3
+            B[2, Y[4]] = 1.0  # tangential stress y4
+            # potential component
+            B[3, Y[6]] = 1.0
+            B[4, Y[8]] = 1.0
+        elseif M == 6
+            # stress components
+            B[1, Y[3]] = 1.0  # radial stress y3
+            B[2, Y[4]] = 1.0  # tangential stress y4
+            # potential component
+            B[3, Y[6]] = 1.0        
+        elseif M == 2
+            # only potential component
+            B[1, Y[2]] = 1.0  # helper y7
+        else
+            error("Unsupported M value. M should be either 2, 6, or 8.")
+        end
+        
+        if M == 2
+            return B, b, y2, y6
+        else
+            return B, b
+        end
     end
 
 
@@ -1260,6 +1776,7 @@ module common
 
             rr = r[i]
             dr = r[i+1] - r[i]
+            dvol = 4π/3 * (r[i+1]^3 - r[i]^3)
             yrr = y[:, i]
 
             # 1. Compute the strain tensor for the current shell
@@ -1276,8 +1793,8 @@ module common
             Eκ_loc = ω/2 * imag(κ[i]) .* abs.(sum(ϵ[:,:,1:3], dims=3)).^2
 
             # 4. Accumulate the heat flux from each shell into the final map (W/m³)
-            Eμ_3d[:, :, i] = Eμ_loc
-            Eκ_3d[:, :, i] = Eκ_loc
+            Eμ_3d[:, :, i] = Eμ_loc * rr^2 * dr / dvol
+            Eκ_3d[:, :, i] = Eκ_loc * rr^2 * dr / dvol
 
         end
 
@@ -1354,6 +1871,8 @@ module common
         for i in 1:Nr-1
 
             rr = r[i]
+            dr = r[i+1] - r[i]
+            dvol = 4π/3 * (r[i+1]^3 - r[i]^3)
             yrr = y[:, i]
 
             # 1. Compute Tensors/Fields for the current shell
@@ -1385,9 +1904,9 @@ module common
             end
 
             # 5. Accumulate the heat flux from each shell into the final map (W/m³)
-            Eμ_3d[:, :, i] = Eμ_loc
-            Eκ_3d[:, :, i] = Eκ_loc
-            El_3d[:, :, i] = El_loc
+            Eμ_3d[:, :, i] = Eμ_loc * rr^2 * dr / dvol
+            Eκ_3d[:, :, i] = Eκ_loc * rr^2 * dr / dvol
+            El_3d[:, :, i] = El_loc * rr^2 * dr / dvol
 
         end
 

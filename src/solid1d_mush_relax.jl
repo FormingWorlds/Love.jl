@@ -15,132 +15,9 @@ module solid1d_mush_relax
     using SparseArrays
     using Printf
 
-
-    """
-        resample_profiles(radius, rho, visc, shear, bulk_s, bulk_l, bulk_d, alpha, visc_l, phi, k, m_core, dr_min, dr_max)
-
-    Resample the input profiles onto a new grid with `ncalc` points. The new grid is generated using a 
-    stretched and refined scheme, which allows for better resolution in regions of interest (e.g., near 
-    layer boundaries). 
-
-    # Arguments
-    - `radius::Vector{prec}`              : Original radius profile (layer boundaries).
-    - `rho::Vector{prec}`                 : Original density profile (defined at layer centers).
-    - `visc::Vector{prec}`                : Original viscosity profile (defined at layer centers).
-    - `shear::Vector{precc}`              : Original shear modulus profile (defined at layer centers).
-    - `bulk_s::Vector{precc}`             : Original solid bulk modulus profile (defined at layer centers).
-    - `bulk_l::Vector{prec}`              : Original liquid bulk modulus profile (defined at layer centers).
-    - `bulk_d::Vector{precc}`             : Original deep bulk modulus profile (defined at layer centers).
-    - `alpha::Vector{precc}`              : Original alpha profile (defined at layer centers).
-    - `visc_l::Vector{prec}`              : Original liquid viscosity profile (defined at layer centers).
-    - `phi::Vector{prec}`                 : Original phi profile (defined at layer centers).
-    - `m_core::prec`                      : Mass of the core, used for gravity calculations.
-    - `Δr_min::Int64`                     : Minimum grid spacing for the new grid.
-    - `Δr_max::Int64`                     : Maximum grid spacing for the new grid.
-
-    # Returns
-    Tuple of resampled profiles on the new grid:
-    - `r_new_b::Vector{prec}`             : New radius profile at layer boundaries.
-    - `ρ_new::Vector{prec}`               : New density profile at layer centers.
-    - `η_new::Vector{prec}`               : New viscosity profile at layer centers.
-    - `μ_new::Vector{precc}`              : New shear modulus profile at layer centers.
-    - `κs_new::Vector{precc}`             : New solid bulk modulus profile at layer centers.
-    - `κl_new::Vector{prec}`              : New liquid bulk modulus profile at layer centers.
-    - `κd_new::Vector{precc}`             : New deep bulk modulus profile at layer centers.
-    - `α_new::Vector{precc}`              : New alpha profile at layer centers.
-    - `ηl_new::Vector{prec}`              : New liquid viscosity profile at layer centers.
-    - `φ_new::Vector{prec}`               : New phi profile at layer centers.
-    - `k_new::Vector{prec}`               : New k profile at layer centers.
-    - `g_new::Vector{prec}`               : New gravity profile at layer centers.
-    - `M_tot::prec`                       : Total mass of the body, used for non-dimensionalization.
-    """ 
-    function resample_profiles(radius::Vector{prec}, rho::Vector{prec}, visc::Vector{prec}, shear::Vector{precc}, bulk_s::Vector{precc}, bulk_l::Vector{prec}, bulk_d::Vector{precc}, alpha::Vector{precc}, visc_l::Vector{prec}, phi::Vector{prec}, k::Vector{prec}, m_core::prec, dr_min::Int64, dr_max::Int64)
-        # setup grids
-        α = log(dr_max / dr_min)
-
-        N = Int(ceil((radius[end] - radius[1]) / dr_min * α / (exp(α) - 1)))
-
-        # indices i = 1:N
-        i = collect(1:N)
-
-        # convert to prec for consistency
-        i_bf = prec.(i)
-        N_bf = prec(N)
-
-        # compute normalized coordinate (N - i)/(N - 1)
-        ξ = (N_bf .- i_bf) ./ (N_bf - 1)
-
-        # compute r_i
-        r_new_b = radius[end] .+ (radius[1] - radius[end]) .* (
-            (exp.(α .* ξ) .- 1) ./ (exp(α) - 1)
-        )
-
-        # cell centers
-        r_new_c = 0.5 .* (r_new_b[1:end-1] .+ r_new_b[2:end])
-
-        # obtain new profiles (Constant per original layer)
-        ρ_new = similar(rho, N-1)
-        η_new = similar(visc, N-1)
-        μ_new = similar(shear, N-1)
-        κs_new = similar(bulk_s, N-1)
-        κl_new = similar(bulk_l, N-1)
-        κd_new = similar(bulk_d, N-1)
-        α_new = similar(alpha, N-1)
-        ηl_new = similar(visc_l, N-1)
-        φ_new = similar(phi, N-1)
-        k_new = similar(k, N-1)
-
-        for i in 1:N-1
-            # find index such that r_b[idx] <= r_new_c[i] < r_b[idx+1]
-            idx = searchsortedfirst(radius, r_new_c[i]) - 1
-            idx = clamp(idx, 1, length(rho)) # Safety clamp
-
-            ρ_new[i] = rho[idx]
-            η_new[i] = visc[idx]
-            μ_new[i] = shear[idx]
-            κs_new[i] = bulk_s[idx]
-            κl_new[i] = bulk_l[idx]
-            κd_new[i] = bulk_d[idx]
-            α_new[i] = alpha[idx]
-            ηl_new[i] = visc_l[idx]
-            φ_new[i] = phi[idx]
-            k_new[i] = k[idx]
-        end
-
-        g_new, M_tot = get_g(r_new_b, ρ_new, m_core) 
-
-        return r_new_b, ρ_new, η_new, μ_new, κs_new, κl_new, κd_new, α_new, ηl_new, φ_new, k_new, g_new, M_tot
-    end
-
-
-    """
-        get_g(r, ρ, m_core)
-
-    Compute the radial gravity structure associated with a density profile `r` at intervals given by `r`.
-
-    # Arguments
-    - `r::Array{prec,1}`               : 1D array of layer boundaries. 
-    - `ρ::Array{prec,1}`               : 1D array of layer densities. The length of `ρ` must be equal to the number of columns in `r`.
-    - `m_core::prec`                   : Mass of the core.
-
-    # Returns
-    - `g::Array{prec,1}`               : 1D array of gravity values at the layer boundaries. The dimensions of `g` are the same as `r`.
-    - `M_enc::prec`                    : Total mass enclosed within the outermost layer boundary.
-    """
-    function get_g(r::Vector{prec}, ρ::Vector{prec}, m_core::prec)
-
-        dm = 4.0/3.0 * π .* diff(r.^3) .* ρ
-
-        M_enc = cumsum(dm) .+ m_core
-            
-        g = G .* M_enc ./ r[2:end].^2
-
-        return g, M_enc[end]
-    end
-
     
     """
-        solve_radial_system(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core, scales; core="liquid", patch=false)
+        solve_radial_system(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core, scales; core="liquid", inertial_terms=true, patch=false)
 
     Solve the radial system of ODEs for the solid-body problem using a relaxation method. This function 
     implements the forward-backward relaxation scheme described in the main text of N. Kobayashi (2006).
@@ -161,12 +38,13 @@ module solid1d_mush_relax
     - `k::Vector{prec}`                 : Vector of permeabilities at the layer centers.
     - `n::Int`                          : Tidal degree.
     - `ρ_core::prec`                    : Density of the core, used for core boundary conditions.
-    - `μ_core::prec`                    : Shear modulus of the core, used for core boundary conditions.
-    - `κ_core::prec`                    : Bulk modulus of the core, used for core boundary conditions.
+    - `μ_core::precc`                   : Shear modulus of the core, used for core boundary conditions.
+    - `κ_core::precc`                   : Bulk modulus of the core, used for core boundary conditions.
     - `scales::Vector{prec}`            : Vector of scaling parameters for non-dimensionalization.
 
     # Keyword Arguments
     - `core::String="liquid"            : Type of core boundary condition to apply. Options are "liquid" for a fluid core, "solid" for a solid core, and "inertial" for a core with inertial response.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `patch::Bool=false`               : Whether to insert an infinitesimal solid shell around the core. This patches an issue where y2 and y4 become decoupled and cause the solution to diverge in fluid layers.
 
     # Returns
@@ -177,7 +55,7 @@ module solid1d_mush_relax
     - `transitions::Vector{Int}`        : Indices of the interface layers (the ones closer to the core and surface).
     """
     function solve_radial_system(r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int,
-                                ρ_core::prec, μ_core::prec, κ_core::prec, scales::Vector{prec}; core="liquid", patch=false)
+                                ρ_core::prec, μ_core::precc, κ_core::precc, scales::Vector{prec}; core="liquid", inertial_terms=true, patch=false)
 
         # Define ordering
         Y6 = [1,2,4,5,3,6]
@@ -193,6 +71,11 @@ module solid1d_mush_relax
 
         # insert solid shell around core
         if patch
+            μ  = copy(μ)   # break aliasing with caller's array before mutating
+            K  = copy(K)
+            Kd = copy(Kd)
+            k  = copy(k)
+            ϕ  = copy(ϕ)
             μ[1] = precc(1.47e11)   # these values are chosen to be representative of a solid shell
             K[1] = precc(6.58e10)
             Kd[1] = precc(1.47e11)
@@ -226,11 +109,11 @@ module solid1d_mush_relax
         # Step 1: Core Boundary
         if !is_mush[1]
             @debug("STEP 1: [Core Boundary] Solid")
-            C1l, D2l = core_boundary(R6_view, (1, 2), rs, ρs, gs, μs, Ks, ωs, ρ_core/ρ0, μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=Y6)
+            C1l, D2l = core_boundary(R6_view, (1, 2), rs, ρs, gs, μs, Ks, ωs, ρ_core/ρ0, μ_core/μ0, κ_core/μ0, core, n; G0=G0, inertial_terms=inertial_terms,Y=Y6)
             curr_idx = 2
         else
             @debug("STEP 1: [Core Boundary] Mushy")
-            C1l, D2l = core_boundary_mush(R8_view, (1, 2), rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, ρ_core/ρ0, μ_core/μ0, κ_core/μ0, core, n; G0=G0, Y=Y8)
+            C1l, D2l = core_boundary_mush(R8_view, (1, 2), rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, ρ_core/ρ0, μ_core/μ0, κ_core/μ0, core, n; G0=G0, inertial_terms=inertial_terms, Y=Y8)
             curr_idx = 2
         end
 
@@ -245,11 +128,11 @@ module solid1d_mush_relax
                 if !is_mush[curr_idx]
                     @debug("STEP: [Propagate Solid] | Range: ($curr_idx, $segment_end)")
                     C1l, D2l = propagate_solid(R6_view, C1l, D2l, (curr_idx, segment_end-1), 
-                                            rs, ρs, gs, μs, Ks, ωs, n; G0=G0, Y=Y6)
+                                            rs, ρs, gs, μs, Ks, ωs, n; G0=G0, inertial_terms=inertial_terms, Y=Y6)
                 else
                     @debug("STEP: [Propagate Mushy] | Range: ($curr_idx, $segment_end)")
                     C1l, D2l = propagate_mush(R8_view, C1l, D2l, (curr_idx, segment_end-1), 
-                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, Y=Y8)
+                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, inertial_terms=inertial_terms, Y=Y8)
                 end
             end
 
@@ -261,11 +144,11 @@ module solid1d_mush_relax
                 if !is_mush[segment_end] && is_mush[next_change]
                     @debug("STEP: [Interface] Solid -> Mushy | Indices: $trans_range")
                     C1l, D2l = interface_solid_mush(R8_view, C1l, D2l, trans_range, 
-                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, Y=Y8)
+                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, inertial_terms=inertial_terms, Y=Y8)
                 else
                     @debug("STEP: [Interface] Mushy -> Solid | Indices: $trans_range")
                     C1l, D2l = interface_mush_solid(R8_view, C1l, D2l, trans_range, 
-                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, Y=Y8)
+                                            rs, ρs, gs, μs, Ks, ωs, ρₗs, Kls, Kds, α, ηₗs, ϕ, ks, n; G0=G0, inertial_terms=inertial_terms, Y=Y8)
                 end
                 curr_idx = next_change
             else
@@ -290,7 +173,7 @@ module solid1d_mush_relax
 
 
     """
-        interface_mush_solid(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, Y=[1,2,3,4,5,6,7,8])
+        interface_mush_solid(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
     Perform the forward-backward relaxation step at the interface between the mushy layer and the solid layer. This 
     function implements the recursion described in N. Kobayashi (2007) for the transition from the 8x8 system to the 6x6 system.
@@ -316,13 +199,14 @@ module solid1d_mush_relax
 
     # keyword arguments
     - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `Y::Vector{Int}=1:8`              : Vector of column indices corresponding to the 6x6 system variables in the 8x8 system. This allows for
 
     # Returns
     - `Cn_l::Matrix{precc}`             : Updated 3x6 matrix representing the "stored" lower half of the Cn matrix for the next iteration.
     - `Dnp_l::Matrix{precc}`            : Updated 3x6 matrix representing the "stored" lower half of the Dnp matrix for the next iteration.
     """
-    function interface_mush_solid(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, Y=[1,2,3,4,5,6,7,8])
+    function interface_mush_solid(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
         start_id, end_id = ids
         i = start_id
@@ -342,10 +226,10 @@ module solid1d_mush_relax
 
         # Calculate A at current and next step
         A_n  = get_A(ω, r[i],   ρ[i],   g[i],   μ[i],   K[i],
-                        ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, Y=Y)
+                        ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         A_np = get_A(ω, r[i+1], ρ[i+1], g[i+1], μ[i+1], K[i+1],
-                    ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, Y=Y)
+                    ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         Cn  .+= 0.5 * dr * A_n
         Dnp .+= 0.5 * dr * A_np
@@ -365,7 +249,7 @@ module solid1d_mush_relax
         Sn = [Sn_u; Cn_u]
         Qn = [Qn_u; Dnp_u]
         Kn = zeros(precc, 8, 8)
-        Kn[Y[4], Y[4]] = 1.0
+        Kn[Y[8], Y[8]] = 1.0
 
         # 4. Perform recursion
         Xn = Pn * R[i-1] + Sn + Kn
@@ -378,7 +262,6 @@ module solid1d_mush_relax
         # update R only for the rows that are not the Darcy flux constraint
         # this ensures y8 remains zero at the interface
         R[i][:, active_cols] .= R_ifc[:, active_cols]
-        R[i][:, Y[7]]        .= 0.0  # explicitly enforce the impermeable boundary
         R[i][:, Y[8]]        .= 0.0  # explicitly enforce the impermeable boundary
 
         # 5. Update the "stored" lower halves for the next iteration
@@ -394,7 +277,7 @@ module solid1d_mush_relax
 
 
     """
-        interface_solid_mush(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, Y=[1,2,3,4,5,6,7,8])
+        interface_solid_mush(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
     Perform the forward-backward relaxation step at the interface between the solid layer and the mushy layer. This 
     function implements the recursion described in N. Kobayashi (2007) for the transition from the 6x6 system to the 8x8 system.
@@ -421,13 +304,14 @@ module solid1d_mush_relax
 
     # keyword arguments
     - `G0::prec=1`                      : Gravitational constant scale for non-dimensionalization.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `Y::Vector{Int}=1:8`              : Vector of column indices corresponding to the 6x6 system variables in the 8x8 system. This allows for
 
     # Returns
     - `Cn_l::Matrix{precc}`             : Updated 3x6 matrix representing the "stored" lower half of the Cn matrix for the next iteration.
     - `Dnp_l::Matrix{precc}`            : Updated 3x6 matrix representing the "stored" lower half of the Dnp matrix for the next iteration.    
     """
-    function interface_solid_mush(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, Y=[1,2,3,4,5,6,7,8])
+    function interface_solid_mush(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
         start_id, end_id = ids
         i = start_id
@@ -446,10 +330,10 @@ module solid1d_mush_relax
 
         # calculate A at current and next step
         A_n  = get_A(ω, r[i],   ρ[i],   g[i],   μ[i],   K[i],
-                        ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, Y=Y)
+                        ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         A_np = get_A(ω, r[i+1], ρ[i+1], g[i+1], μ[i+1], K[i+1],
-                    ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, Y=Y)
+                    ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         Cn  .+= 0.5 * dr * A_n
         Dnp .+= 0.5 * dr * A_np
@@ -498,7 +382,7 @@ module solid1d_mush_relax
 
 
     """
-        core_boundary(R, ids, r, ρ, g, μ, K, ω, ρ_core, μ_core, κ_core, core, n; G0=1, Y=[1,2,3,4,5,6])
+        core_boundary(R, ids, r, ρ, g, μ, K, ω, ρ_core, μ_core, κ_core, core, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6])
 
     Perform the forward-backward relaxation step at the core boundary. This function implements the recursion described 
     in N. Kobayashi (2007) for the initial step of the relaxation scheme, where we apply the core boundary condition and 
@@ -514,20 +398,21 @@ module solid1d_mush_relax
     - `K::Vector{precc}`                : Vector of bulk moduli at the layer centers.
     - `ω::prec`                         : Angular frequency of the tidal forcing.
     - `ρ_core::prec`                    : Density of the core, used for core boundary conditions.
-    - `μ_core::prec`                    : Complex shear modulus of the core, used for core boundary conditions.
-    - `κ_core::prec`                    : Complex bulk modulus of the core, used for core boundary conditions.
+    - `μ_core::precc`                   : Complex shear modulus of the core, used for core boundary conditions.
+    - `κ_core::precc`                   : Complex bulk modulus of the core, used for core boundary conditions.
     - `core::String`                    : Type of core boundary condition to apply.
     - `n::Int`                          : Tidal degree.
 
     Keyword Arguments
     - `G0::prec=1`                      : Gravitational constant used for non-dimensional scaling.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `Y::Vector{Int}=[1,2,3,4,5,6]`   : Ordering of the solution vector components.
 
     # Returns
     - `C1l::Matrix{precc}`              : 3x6 matrix representing the "stored" lower half of the C1 matrix for the next iteration.
     - `D2l::Matrix{precc}`              : 3x6 matrix representing the "stored" lower half of the D2 matrix for the next iteration.
     """
-    function core_boundary(R::Vector, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρ_core::prec, μ_core::prec, κ_core::prec, core::String, n::Int; G0=1, Y=[1,2,3,4,5,6])
+    function core_boundary(R::Vector, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρ_core::prec, μ_core::precc, κ_core::precc, core::String, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6])
 
         start_id, end_id = ids
 
@@ -537,8 +422,8 @@ module solid1d_mush_relax
         # first layer (n = 1)
         dr = r[end_id] - r[start_id]
 
-        A1 = get_A(ω, r[start_id], ρ[start_id], g[start_id], μ[start_id], K[start_id], n; G0=G0, Y=Y)
-        A2 = get_A(ω, r[end_id], ρ[end_id], g[end_id], μ[end_id], K[end_id], n; G0=G0, Y=Y)
+        A1 = get_A(ω, r[start_id], ρ[start_id], g[start_id], μ[start_id], K[start_id], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
+        A2 = get_A(ω, r[end_id], ρ[end_id], g[end_id], μ[end_id], K[end_id], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         I6 = Matrix{precc}(I, 6, 6)
 
@@ -561,7 +446,7 @@ module solid1d_mush_relax
 
 
     """
-        core_boundary_mush(R, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ρ_core, μ_core, κ_core, core, n; G0=1, Y=[1,2,3,4,5,6,7,8])
+        core_boundary_mush(R, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, ρ_core, μ_core, κ_core, core, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
     Perform the forward-backward relaxation step at the core boundary for the two-phase problem. This function implements 
     the recursion described in N. Kobayashi (2007) for the initial step of the relaxation scheme, where we apply the core 
@@ -585,20 +470,21 @@ module solid1d_mush_relax
     - `ϕ::Vector{prec}`                 : Vector of porosities at the layer centers.
     - `k::Vector{prec}`                 : Vector of permeabilities at the layer centers.
     - `ρ_core::prec`                    : Density of the core, used for core boundary conditions.
-    - `μ_core::prec`                    : Complex shear modulus of the core, used for core boundary conditions.
-    - `κ_core::prec`                    : Complex bulk modulus of the core, used for core boundary conditions.
+    - `μ_core::precc`                   : Complex shear modulus of the core, used for core boundary conditions.
+    - `κ_core::precc`                   : Complex bulk modulus of the core, used for core boundary conditions.
     - `core::String`                    : Type of core boundary condition to apply.
     - `n::Int`                          : Tidal degree.
 
     Keyword Arguments
     - `G0::prec=1`                      : Gravitational constant used for non-dimensional scaling.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]`: Ordering of the solution vector components.
 
     # Returns
     - `C1l::Matrix{precc}`              : 4x8 matrix representing the "stored" lower half of the C1 matrix for the next iteration.
     - `D2l::Matrix{precc}`              : 4x8 matrix representing the "stored" lower half of the D2 matrix for the next iteration.
     """
-    function core_boundary_mush(R::Vector, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, ρ_core::prec, μ_core::prec, κ_core::prec, core::String, n::Int; G0=1, Y=[1,2,3,4,5,6,7,8])
+    function core_boundary_mush(R::Vector, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, ρ_core::prec, μ_core::precc, κ_core::precc, core::String, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
         start_id, end_id = ids
 
@@ -609,10 +495,10 @@ module solid1d_mush_relax
         dr = r[end_id] - r[start_id]
 
         A1 = get_A(ω, r[start_id], ρ[start_id], g[start_id], μ[start_id], K[start_id],
-                    ρₗ[start_id], Kl[start_id], Kd[start_id], α[start_id], ηₗ[start_id], ϕ[start_id], k[start_id], n; G0=G0, Y=Y)
+                    ρₗ[start_id], Kl[start_id], Kd[start_id], α[start_id], ηₗ[start_id], ϕ[start_id], k[start_id], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         A2 = get_A(ω, r[end_id], ρ[end_id], g[end_id], μ[end_id], K[end_id],
-                ρₗ[end_id], Kl[end_id], Kd[end_id], α[end_id], ηₗ[end_id], ϕ[end_id], k[end_id], n; G0=G0, Y=Y)
+                ρₗ[end_id], Kl[end_id], Kd[end_id], α[end_id], ηₗ[end_id], ϕ[end_id], k[end_id], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
         I8 = Matrix{precc}(I, 8, 8)
 
@@ -635,7 +521,7 @@ module solid1d_mush_relax
 
     
     """
-        propagate_solid(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, n; G0=1, Y=[1,2,3,4,5,6])
+        propagate_solid(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6])
 
     Perform the forward-backward relaxation step for the solid propagation segments. This function implements the 
     recursion described in N. Kobayashi (2007) for the segments of the radial grid that correspond to the solid 
@@ -656,13 +542,14 @@ module solid1d_mush_relax
 
     Keyword Arguments
     - `G0::prec=1`                      : Gravitational constant used for non-dimensional scaling.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `Y::Vector{Int}=[1,2,3,4,5,6]`    : Ordering of the solution vector components.
 
     # Returns
     - `Cn_l::Matrix{precc}`             : Updated 3x6 matrix representing the "stored" lower half of the Cn matrix for the next iteration.
     - `Dnp_l::Matrix{precc}`            : Updated 3x6 matrix representing the "stored" lower half of the Dnp matrix for the next iteration.
     """
-    function propagate_solid(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, n::Int; G0=1, Y=[1,2,3,4,5,6])
+    function propagate_solid(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6])
 
         start_id, end_id = ids
 
@@ -677,8 +564,8 @@ module solid1d_mush_relax
             dr = r[i+1] - r[i]
 
             # Calculate A at current and next step
-            A_n  = get_A(ω, r[i],   ρ[i],   g[i],   μ[i],   K[i],   n; G0=G0, Y=Y)
-            A_np = get_A(ω, r[i+1], ρ[i+1], g[i+1], μ[i+1], K[i+1], n; G0=G0, Y=Y)
+            A_n  = get_A(ω, r[i],   ρ[i],   g[i],   μ[i],   K[i],   n; G0=G0, inertial_terms=inertial_terms, Y=Y)
+            A_np = get_A(ω, r[i+1], ρ[i+1], g[i+1], μ[i+1], K[i+1], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
             Cn  =  I6 + 0.5 * dr * A_n
             Dnp = -I6 + 0.5 * dr * A_np
@@ -718,7 +605,7 @@ module solid1d_mush_relax
 
     
     """
-        propagate_mush(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, Y=[1,2,3,4,5,6,7,8])
+        propagate_mush(R, Cn_l, Dnp_l, ids, r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
     Perform the forward-backward relaxation step for the mushy layer propagation segment. This function implements the
     recursion described in N. Kobayashi (2007) for the segment of the radial grid that corresponds to the mushy layer, 
@@ -746,14 +633,15 @@ module solid1d_mush_relax
     - `n::Int`                          : Tidal degree. 
 
     Keyword Arguments
-    - `G0::prec=1`                      : Gravitational constant used for non-dimensional scaling.  
-    - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]` : Indices for the state variables (default is for standard case).
+    - `G0::prec=1`                      : Gravitational constant used for non-dimensional scaling.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.  
+    - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]`: Indices for the state variables (default is for standard case).
 
     # Returns
     - `Cn_l::Matrix{precc}`             : Updated 4x8 matrix representing the "stored" lower half of the Cn matrix for the next iteration.
     - `Dnp_l::Matrix{precc}`            : Updated 4x8 matrix representing the "stored" lower half of the Dnp matrix for the next iteration.
     """
-    function propagate_mush(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, Y=[1,2,3,4,5,6,7,8])
+    function propagate_mush(R::Vector, Cn_l::Matrix{precc}, Dnp_l::Matrix{precc}, ids::Tuple{Int, Int}, r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int; G0=1, inertial_terms=true, Y=[1,2,3,4,5,6,7,8])
 
         start_id, end_id = ids
 
@@ -769,10 +657,10 @@ module solid1d_mush_relax
 
             # Calculate A at current and next step
             A_n  = get_A(ω, r[i],   ρ[i],   g[i],   μ[i],   K[i],
-                            ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, Y=Y)
+                            ρₗ[i], Kl[i], Kd[i], α[i], ηₗ[i], ϕ[i], k[i], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
             A_np = get_A(ω, r[i+1], ρ[i+1], g[i+1], μ[i+1], K[i+1],
-                        ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, Y=Y)
+                        ρₗ[i+1], Kl[i+1], Kd[i+1], α[i+1], ηₗ[i+1], ϕ[i+1], k[i+1], n; G0=G0, inertial_terms=inertial_terms, Y=Y)
 
             Cn  =  I8 + 0.5 * dr * A_n
             Dnp = -I8 + 0.5 * dr * A_np
@@ -899,9 +787,9 @@ module solid1d_mush_relax
         start_id, end_id = ids
 
         # tidal surface boundary condition
-        BN_t, b_t = get_surface_bc!(r[end], g[end], n, 1, 0, 0, 0; Y=Y)
+        BN_t, b_t = get_surface_bc!(r[end], g[end], n, 1, 0, 0, 0; G0=G0, Y=Y)
         # load surface boundary condition
-        BN_l, b_l = get_surface_bc!(r[end], g[end], n, 0, 1, 0, 0; Y=Y)
+        BN_l, b_l = get_surface_bc!(r[end], g[end], n, 0, 1, 0, 0; G0=G0, Y=Y)
 
         PN = [CNm_l; zeros(4,8)]
         SN_t = [DN_l; BN_t]
@@ -928,148 +816,33 @@ module solid1d_mush_relax
     boundary must balance the tidal potential, and that the tangential stresses must vanish.
 
     # Arguments
-    - `ω::Float64`                       : Forcing frequency.
-    - `r::prec`                          : Radial position of the core-mantle boundary.
-    - `ρ::prec`                          : Average core density.
-    - `g::prec`                          : Gravity at the core-mantle boundary.
-    - `μ::prec`                          : Average core shear modulus.
-    - `K::prec`                          : Average core bulk modulus.
-    - `type::String`                     : Type of core boundary condition to apply. Options are "liquid" for a fluid core, "solid" for a solid core, and "inertial" for a core with inertial response.
-    - `n::Int`                           : Tidal degree.
+    - `ω::Float64`                        : Forcing frequency.
+    - `r::prec`                           : Radial position of the core-mantle boundary.
+    - `ρ::prec`                           : Average core density.
+    - `g::prec`                           : Gravity at the core-mantle boundary.
+    - `μ::precc`                          : Average core shear modulus.
+    - `K::precc`                          : Average core bulk modulus.
+    - `type::String`                      : Type of core boundary condition to apply ("liquid", "solid", or "inertial").
+    - `n::Int`                            : Tidal degree.
 
     # Keyword Arguments
-    - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
-    - `Y::Vector{Int}=[1,2,3,4,5,6]`    : Indices for the state variables (default is for standard case).
+    - `G0::prec=1`                        : Gravitational constant scale for non-dimensionalization.
+    - `Y::Vector{Int}=[1,2,3,4,5,6]`     : Indices for the state variables (supports M=6 standard or M=8 mushing systems).
 
     # Returns
-    - `B::Array{precc,2}`                : 3x6 matrix representing the linear relationship between the state variables at the core and the boundary conditions.
+    - `B::Array{precc,2}`                 : N x M matrix (where M = length(Y), N = M/2) representing the core boundary constraint B * y = 0.
     """
-    function get_core_bc!(ω::prec, r::prec, ρ::prec, g::prec, μ::prec, K::prec, type::String, n::Int; G0=1, Y=[1,2,3,4,5,6])
+    function get_core_bc!(ω::prec, r::prec, ρ::prec, g::prec, μ::precc, K::precc, type::String, n::Int; G0=1, Y=[1,2,3,4,5,6])
         
-        M = length(Y)
-        N = Int(M / 2)
-
-        # 1. Get the Initial Conditions matrix
+        # Get the Initial Conditions matrix (M x N, where N = M/2 fundamental solutions)
         Ic = get_Ic(ω, r, ρ, g, μ, K, type, n; G0=G0, Y=Y)
 
-        # 2. Define indices based on dimensionality
-        # If M=8 (Mushing/Hay 2025):  U=1, V=2, phi=5, P=7 | X=3, Y=4, psi=6, R=8
-        # If M=6 (Standard/Takeuchi): U=1, V=2, phi=5      | X=3, Y=4, psi=6
-        if M == 8
-            idx_u = [Y[1], Y[2], Y[5], Y[7]]
-            idx_s = [Y[3], Y[4], Y[6], Y[8]]
-        else
-            idx_u = [Y[1], Y[2], Y[5]]
-            idx_s = [Y[3], Y[4], Y[6]]
-        end
+        # Compute the left nullspace directly via SVD (xᵀ * Ic = 0)
+        # Returns an 8 x 4 matrix where columns form an orthonormal basis for the nullspace
+        Bt = nullspace(transpose(Ic))
 
-        # 3. Partition and calculate the boundary condition coefficients
-        Mu = Ic[idx_u, :]
-        Ms = Ic[idx_s, :]
-        
-        # Equation 91: b = -Mu * Ms⁻¹
-        b = -Mu * pinv(Ms)
-
-        # 4. Construct the NxM B matrix
-        T = eltype(b)
-        B = zeros(T, N, M)
-
-        for i in 1:N
-            B[i, idx_u[i]] = 1.0
-            for j in 1:length(idx_s)
-                B[i, idx_s[j]] = b[i, j]
-            end
-        end
-
-        return B
-    end
-
-
-    """
-        get_surface_bc!(R, g, n, U, U_prime, tau, P; G0=1, Y=[1,2,3,4,5,6,7,8])
-
-    Get the surface boundary condition vector `b` and matrix `BN` for the solid-body problem. The surface 
-    boundary conditions are determined by setting, respectively (U, U', tau, P) to (1,0,0,0) for tidal Love 
-    number and (0,1,0,0) for load Love number in system.
-
-    https://hal.science/hal-03421553/document
-
-    # Arguments
-    - `R::prec`                          : Planetary radius, used for surface boundary conditions.
-    - `g::prec`                          : Gravity at the surface, used for surface boundary conditions.
-    - `n::Int`                           : Tidal degree.
-    - `U::Int`                           : Tidal potential at the surface.
-    - `U_prime::Int`                     : Radial derivative of the tidal potential at the surface.
-    - `tau::Int`                         : Tangential tidal stress at the surface.
-    - `P::Int`                           : Surface mass load at the surface.
-
-    # Keyword Arguments
-    - `G0::prec=1`                       : Gravitational constant scale for non-dimensionalization.
-    - `Y::Vector{Int}=[1,2,3,4,5,6,7,8]` : Indices for the state variables (default is for standard case).
-
-    # Returns
-    - `B::Array{precc,2}`                : 3x6 matrix representing the linear relationship between the state variables at the surface and the boundary conditions.
-    - `b::Vector{precc}`                 : Vector of length 6 representing the inhomogeneous part of the surface boundary conditions.
-    """
-    function get_surface_bc!(R::prec, g::prec, n::Int, U::Int, U_prime::Int, tau::Int, P::Int; G0=1, Y=[1,2,3,4,5,6,7,8])
-        
-        M = length(Y)
-        N = Int(M / 2)
-
-        # Define surface mass load (zeta) based on Farrell/Longman relation
-        zeta = ((2 * n + 1) / (4 * pi * G/G0 * R)) * U_prime
-
-        # b vector (Right Hand Side of the B*y = b system)
-        b = zeros(precc, M) 
-        
-        if M == 8
-            # radial Stress y3
-            b[Y[3]] = -g * zeta * (G/G0) / R - P
-            
-            # tangential Stress y4
-            b[Y[4]] = tau
-            
-            # gravitational potential boundary
-            b[Y[6]] = ((2 * n + 1) / R) * U + 4 * pi * G/G0 * zeta
-
-            # darcy flux boundary
-            b[Y[8]] = 0
-        elseif M == 6
-            # radial Stress y3
-            b[Y[3]] = -g * zeta * (G/G0) / R - P
-            
-            # tangential Stress y4
-            b[Y[4]] = tau
-            
-            # gravitational potential boundary
-            b[Y[6]] = ((2 * n + 1) / R) * U + 4 * pi * G/G0 * zeta
-        else
-            error("Unsupported M value. M should be either 6 or 8.")
-        end
-        
-        # construct the 4x8 B matrix
-        # this matrix extracts y3, y4, and the combination for y6
-        B = zeros(precc, N, M)
-
-        if M == 8
-            # stress components
-            B[1, Y[3]] = 1.0  # radial stress y3
-            B[2, Y[4]] = 1.0  # tangential stress y4
-            
-            # potential component
-            B[3, Y[5]] = (n + 1) / R
-            B[3, Y[6]] = 1.0
-            B[4, Y[8]] = 1.0
-        elseif M == 6
-            # stress components
-            B[1, Y[3]] = 1.0  # radial stress y3
-            B[2, Y[4]] = 1.0  # tangential stress y4
-            # potential component
-            B[3, Y[5]] = (n + 1) / R
-            B[3, Y[6]] = 1.0        
-        end
-
-        return B, b
+        # Return as 4 x 8 constraint matrix B
+        return permutedims(Bt)
     end
 
 
@@ -1097,22 +870,23 @@ module solid1d_mush_relax
     - `k::Vector{prec}`                 : Vector of permeabilities at the layer centers.
     - `n::Int`                          : Tidal degree.
     - `ρ_core::prec`                    : Density of the core, used for core boundary conditions.
-    - `μ_core::prec`                    : Complex shear modulus of the core, used for core boundary conditions.
-    - `κ_core::prec`                    : Complex bulk modulus of the core, used for core boundary conditions.
+    - `μ_core::precc`                   : Complex shear modulus of the core, used for core boundary conditions.
+    - `κ_core::precc`                   : Complex bulk modulus of the core, used for core boundary conditions.
     - `scales::Vector{prec}`            : Vector of scaling parameters for non-dimensionalization.
 
     # Keyword Arguments
     - `core::String="liquid"            : Type of core boundary condition to apply. Options are "liquid" for a fluid core, "solid" for a solid core, and "inertial" for a core with inertial response.
+    - `inertial_terms::Bool=true`       : Whether to include inertial terms in the motion matrix.
     - `patch::Bool=false`               : Whether to insert an infinitesimal solid shell around the core. This patches an issue where y2 and y4 become decoupled and cause the solution to diverge in fluid layers.
 
     # Returns
     - `y_t::Matrix{ComplexF64}`         : 8xN matrix of the solution at all radial grid points, where N is the number of radial layers. Each column corresponds to a radial grid point, and each row corresponds to a state variable (displacements, stresses, potential).
     - `y_l::Matrix{ComplexF64}`         : 8x1 matrix of the solution at the surface for the load problem.
     """    
-    function compute_y(r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int, ρ_core::prec, μ_core::prec, κ_core::prec, scales::Vector{prec}; core="liquid", patch=false)
+    function compute_y(r::Vector{prec}, ρ::Vector{prec}, g::Vector{prec}, μ::Vector{precc}, K::Vector{precc}, ω::prec, ρₗ::Vector{prec}, Kl::Vector{prec}, Kd::Vector{precc}, α::Vector{precc}, ηₗ::Vector{prec}, ϕ::Vector{prec}, k::Vector{prec}, n::Int, ρ_core::prec, μ_core::precc, κ_core::precc, scales::Vector{prec}; core="liquid", inertial_terms=true, patch=false)
 
         # solve radial system to get surface solution and recursion matrices
-        yN_t, yN_l, R, S, Y8, transitions = solve_radial_system(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core, scales; core=core, patch=patch)
+        yN_t, yN_l, R, S, Y8, transitions = solve_radial_system(r, ρ, g, μ, K, ω, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core, scales; core=core, inertial_terms=inertial_terms, patch=patch)
 
         Nr = length(r)
         T = eltype(yN_t)

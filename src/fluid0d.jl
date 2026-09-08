@@ -11,7 +11,7 @@ module fluid0d
     """
         compute_fluid_lovenumbers(omega, R, H_magma, g, ρ_ratio, n, σ_R)    
     
-    Calculate k2 lovenumbers in fluid.
+    Calculate kn lovenumbers in fluid.
 
     # Arguments
     - `omega::prec`                     : Forcing frequency range.
@@ -23,8 +23,8 @@ module fluid0d
     - `sigma_R::Float64=1e-3`           : Rayleigh drag coefficient.
 
     # Returns
-    - `k2_T::precc`                     : Complex Tidal k2 Lovenumber.
-    - `k2_L::precc`                     : Complex Load k2 Lovenumber.
+    - `kn_T::precc`                     : Complex Tidal kn Lovenumber.
+    - `kn_L::precc`                     : Complex Load kn Lovenumber.
     """
     function compute_fluid_lovenumbers(
             omega::Float64,
@@ -43,13 +43,13 @@ module fluid0d
 
         σ_T = omega - im*σ_R
 
-        # Tidal love numbers
-        k2_T = -ξ_n * σ_n^2 / (omega*σ_T - σ_n^2)
+        # Tidal love number
+        kn_T = -ξ_n * σ_n^2 / (omega*σ_T - σ_n^2)
 
         # Load love numbers
-        k2_L = 0. # needs proper expression, possibly the shell formalism in Farhat+2025 for a loaded MO
+        kn_L = 0. 
 
-        return k2_T, k2_L
+        return kn_T, kn_L
     end
 
 

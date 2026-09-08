@@ -5,6 +5,7 @@ using DoubleFloats
 using AssociatedLegendrePolynomials
 using Obliqua
 using Obliqua.solid1d_mush
+using Obliqua.constants
 
 
 @testset "solid1d_mush Module Tests" begin
@@ -128,20 +129,22 @@ using Obliqua.solid1d_mush
     # Test 8: compute_M and compute_y
     # -------------------------------------------------------------------------
     @testset "Interior Boundary Matrix & Solutions Solver" begin
-        r = [0.0 10.0; 5.0 20.0; 10.0 30.0]
-        g = [0.0 1.0; 0.5 1.5; 1.0 2.0]
+        r = [0.1 10.0; 5.0 20.0; 10.0 30.0]
+        g = [0.01 1.0; 0.5 1.5; 1.0 2.0]
         ρ = [3000.0, 3200.0]; μ = [1e10+0im, 1.2e10+0im]; K = [2e10+0im, 2.5e10+0im]
         ρₗ = [1000.0, 1000.0]; Kl = [2e9, 2e9]; Kd = [1e10+0im, 1.1e10+0im]
         α = [0.5+0im, 0.6+0im]; ηₗ = [1.0, 1.0]; ϕ = [0.0, 0.1]; k = [1e-12, 1e-12]
-        ω = 1e-3; n = 2; ρ_core = 5000.0; μ_core = 0.0; κ_core = 1e11
+        ω = 1e-3; n = 2; ρ_core = 5000.0; μ_core = complex(0.0); κ_core = complex(1e11)
         
-        M_mat, y1_4 = solid1d_mush.compute_M(ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core; core="liquid")
+        M_mat, y1_4 = solid1d_mush.compute_M(ω, r, ρ, g, μ, K, ρₗ, Kl, Kd, α, ηₗ, ϕ, k, n, ρ_core, μ_core, κ_core, ones(prec, 3); core="liquid")
         
         @test size(M_mat) == (4, 4)
         @test size(y1_4) == (8, 4, size(r, 1)-1, size(r, 2))
         
+        I8 = Matrix{prec}(I, 8, 8)
+
         # Test full solution vector calculation
-        y_sol = solid1d_mush.compute_y(r, g, M_mat, y1_4, n; load=false)
+        y_sol = solid1d_mush.compute_y(r, g, M_mat, y1_4, n, I8, ones(prec, 7); load=false)
         @test size(y_sol) == (8, size(r, 1)-1, size(r, 2))
     end
 

@@ -1,0 +1,95 @@
+@charset "UTF-8";
+
+// =========================================================================
+// PROTEUS Core Palette (Visual Language v1.3 "Thermocline")
+// Shared across both light + dark themes. Do NOT set $themename or
+// @import "documenter-light"/"documenter-dark" from this file -- that must
+// happen exactly once, inside lightdefs.scss / darkdefs.scss respectively.
+// =========================================================================
+$void:        #05070B; // Surface (dark)
+$basalt:      #0E131B; // Cards / dark sidebar
+$paper:       #F2F5F7; // Surface (light) / text on dark
+$ink:         #10151B; // Text on light
+$ocean:       #1B6FA8; // Interactive / links
+$azure:       #4FA3D9; // Dark-mode accent / hover
+$abyss:       #14406B; // Deep ocean accent
+$ice:         #A8D4E8; // Highlights / secondary headers
+$magma:       #E23D28; // Hot signal (rare, high-energy)
+$mantle:      #8E1F12; // Magma, for fills
+$crimson:     #C2362B; // Magma, on light surfaces
+$solar:       #E0A32E; // Accent, sporadic highlight (dark surfaces)
+$solar-light: #C8860F; // Solar, deepened for light surfaces
+$verdant:     #57A05C; // Accent, habitable endpoint
+
+$maincolor: $basalt;
+$secondcolor: $ocean;
+$mainwhite: $paper;
+$mainblack: $ink;
+$darkbg: $void;
+
+// Typography Variables
+$family-sans-serif: 'Instrument Sans', sans-serif;
+$family-monospace: 'Spline Sans Mono', monospace;
+$family-heading: 'Sora', sans-serif;
+
+@font-face {
+  font-family: 'Sora';
+  src: url("../fonts/Sora-Variable.ttf") format("truetype-variations");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url("../fonts/InstrumentSans-Variable.ttf") format("truetype-variations");
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Spline Sans Mono';
+  src: url("../fonts/SplineSansMono-Variable.ttf") format("truetype-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Sidebar Shadow
+$shadow-color: rgba(0, 0, 0, 0.4) !default;
+$shadow-size: 0.2rem !default;
+$shadow-blur: 0.4rem !default;
+
+$lightness-unit: 8% !default;
+@function darken-color($color, $factor) {
+  @return adjust-color($color, $lightness: -$factor*$lightness-unit);
+}
+@function lighten-color($color, $factor) {
+  @return adjust-color($color, $lightness: $factor*$lightness-unit);
+}
+
+// Font sizing (shared defaults; either theme may override before its own @import)
+$body-font-size: 1.0em;
+$documenter-sidebar-size: 1.0em;
+
+// NOTE: $themename, the @import of the base Documenter theme, and all
+// theme-specific variable overrides live in lightdefs.scss / darkdefs.scss.
+
+h1, h2, h3, h4, h5, h6,
+.title, .subtitle,
+#documenter .docs-package-name {
+  font-family: $family-heading;
+}
+
+#documenter .docs-version-selector,
+figcaption, time,
+.eyebrow, .caption {
+  font-family: $family-monospace;
+}
+
+// Hide settings gear container and button target
+#documenter .docs-right-buttons .docs-settings-button,
+#documenter .docs-right-buttons #documenter-settings-button,
+#documenter #documenter-settings-button {
+  display: none !important;
+}
