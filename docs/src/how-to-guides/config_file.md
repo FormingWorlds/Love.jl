@@ -53,28 +53,6 @@ This block controls output and logging.
 
 ---
 
-### Stellar Parameters
-
-Defines the host star.
-
-```@raw html
-<p class="class-header"><span class="class-label">config</span> <span class="class-name">[star]</span></p>
-```
-
-```@raw html
-<div class="attributes-table">
-```
-
-| NAME | TYPE | DESCRIPTION |
-| :--- | :--- | :--- |
-| `mass` | float | Stellar mass in solar masses ($M_\odot$). |
-
-```@raw html
-</div>
-```
-
----
-
 ### Tidal Model Parameters
 
 Controls the tidal response model.
@@ -94,7 +72,6 @@ Controls the tidal response model.
 | `optimize_scales` | bool | Boolean flag to optimize scaling factors for numerical stability. |
 | `solid_shell` | bool | Boolean flag to add an infinitesimal solid shell around the core to couple y2 and y4 in fluid mantles. |
 | `min_frac` | float | Minimum segment fraction of total mantle before it is considered. |
-| `max_frac` | float | Maximum segment fraction of total mantle before it is considered. |
 | `visc_l` | float | Liquid viscosity. |
 | `visc_lus` | float | Liquid-Mush handoff viscosity. |
 | `visc_s` | float | Solid viscosity. |
@@ -105,12 +82,12 @@ Controls the tidal response model.
 | `N_sigma` | int | Number of sampled forcing frequencies. |
 | `p_min` | float | Minimum period ($\log_{10}$ kyr). |
 | `p_max` | float | Maximum period ($\log_{10}$ kyr). |
-| `s_min` | int | Minimum Fourier mode. |
-| `s_max` | int | Maximum Fourier mode. |
+| `s_min` | int or `"none"` | Minimum Fourier mode. `"none"` derives it from the eccentricity relation. |
+| `s_max` | int or `"none"` | Maximum Fourier mode. `"none"` derives it from the eccentricity relation. |
 | `material_mu` | str | Rheological model for shear modulus (`"andrade"`, `"maxwell"`, or `"elastic"`). |
 | `material_k` | str | Rheological model for bulk modulus (`"andrade"`, `"maxwell"`, or `"elastic"`). |
 | `alpha` | float | Andrade power-law exponent. |
-| `module_solid` | str | Solid interior model (`"solid0d"`, `"solid1d"`, `"solid1d-relax"`, `"solid1d-mush"`, `"solid1d-mush-relax"`, or `"solid1d-equil-relax"`). |
+| `module_solid` | str | Solid interior model (`"none"`, `"solid0d"`, `"solid1d"`, `"solid1d-relax"`, `"solid1d-mush"`, `"solid1d-mush-relax"`, or `"solid1d-equil-relax"`). |
 | `module_mushy` | str | Mushy layer model (`"none"` or `"interp"`). |
 | `module_fluid` | str | Fluid layer model (`"none"`, `"fluid0d"`, or `"fluid1d"`). |
 
@@ -135,7 +112,7 @@ Controls the tidal response model.
 | `ncalc` | int | Number of radial layers (shooting method). |
 | `dr_min` | int | Minimum grid spacing for relaxation solver [m]. |
 | `dr_max` | int | Maximum grid spacing for relaxation solver [m]. |
-| `core` | str | Core boundary condition (`"liquid"`, `"solid"`, `"inertial"`). |
+| `core` | str | Core boundary condition (`"liquid"`, `"solid"`, `"inertial-liquid"`, `"inertial"`). |
 | `core_props` | str | Core properties (shear modulus, bulk modulus) to use for CMB boundary condition (`"core"`, `"mantle"`). |
 | `inertial_terms` | bool | Boolean flag to include inertial terms in the motion matrix. |
 | `bulk_l` | float | Liquid bulk modulus [Pa]. |

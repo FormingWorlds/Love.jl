@@ -80,21 +80,33 @@ $$\begin{aligned}
  & U & \zeta_n & \tau & P \\ \hline
 y_{3}(a) & 0 & -g_e \zeta_n & 0 & -P_n \\
 y_{4}(a) & 0 & 0 & \tau_n & 0 \\
-\dfrac{n+1}{a} y_{5}(a) + y_{6}(a)
+y_{6}(a)
            & \dfrac{2n+1}{a} U_n & 4\pi G \zeta_n & 0 & 0
 \end{array}
 \end{aligned}$$ 
 
-where $g_e$ is the norm of surface gravity. The surface
-mass load can also be written as an external potential $U'$ such that
-$\zeta_n = [(2n + 1)/4 \pi G a] U'_n$. 
+where $g_e$ is the norm of surface gravity. No $y_5$ term appears in the
+third row because $y_6$ is already Takeuchi & Saito's (1972) combined
+"potential stress" variable: its own radial equation, $dy_6/dr =
+(n-1)y_6/r + \ldots$, has no coupling to $y_5$ (unlike the raw
+potential-gradient definition used in some other conventions). The
+surface mass load can also be written as an external potential $U'$ such
+that $\zeta_n = [(2n + 1)/4 \pi G a] U'_n$. 
 
 $$\begin{aligned}
 y_{3}(R)   &= - \frac{(2n + 1)g_e}{4 \pi G R} U'_n - P_n \\
 y_{4}(R)   &= \tau_n \\
-\dfrac{n+1}{R} y_{5}(R) + y_{6}(R) 
+y_{6}(R) 
             &= \frac{2n+1}{R} (U_n + U'_n)
 \end{aligned}$$ 
+
+Note that `get_surface_bc!` in `src/common.jl` does not literally apply
+this $\zeta_n \leftrightarrow U'_n$ conversion; it instead sets
+$(U,U',\tau,P)$ directly as dimensionless $0$/$1$ selector flags (see
+below), which for the load case numerically works out to $y_3(a) =
+-(2n+1)g(a)/(4\pi a^2)$ and $y_6(a) = (2n+1)G/a^2$ — see
+[Solid-Phase - solid1d](@ref) for the concrete tidal/load values the
+code actually produces.
 
 For now we only use the following: the tidal Love number
 corresponding to the case of an external potential perturbation $U$ and
@@ -171,14 +183,14 @@ $$\small
 
 \dfrac{4}{r}\!\left( \dfrac{3\kappa\mu}{r\beta} - \rho_{0}g \right) { - \rho_0 \omega^2} &
 \dfrac{\ell(\ell+1)}{r}\!\left(\rho_{0}g - \dfrac{6\kappa\mu}{r\beta}\right) &
--\dfrac{4\mu}{r\beta} & \dfrac{\ell(\ell+1)}{r} & - \dfrac{\rho_{0}(\ell+1)}{r} &
-\rho_{0} \\[1.2em]
+-\dfrac{4\mu}{r\beta} & \dfrac{\ell(\ell+1)}{r} & \dfrac{\rho_{0}(\ell+1)}{r} &
+-\rho_{0} \\[1.2em]
 \dfrac{1}{r}\!\left(\rho_{0}g - \dfrac{6\mu\kappa}{r\beta}\right) &
 \dfrac{2\mu}{r^{2}}\!\left[\ell(\ell+1)\!\left(1+\dfrac{\lambda}{\beta}\right)-1\right] { - \rho_0 \omega^2} &
 -\dfrac{\lambda}{r\beta} & - \dfrac{3}{r} &
-\dfrac{\rho_{0}}{r} & 0 \\[1.2em] 
--4\pi G \rho_{0} & 0 & 0 & 0 & -\dfrac{\ell+1}{r} & 1 \\[1.2em]
--\dfrac{4\pi G \rho_{0} (\ell+1)}{r} & \dfrac{4\pi G \rho_{0} \ell(\ell+1)}{r} & 0 & 0 & 0 & \dfrac{\ell-1}{r} 
+-\dfrac{\rho_{0}}{r} & 0 \\[1.2em] 
+4\pi G \rho_{0} & 0 & 0 & 0 & -\dfrac{\ell+1}{r} & 1 \\[1.2em]
+\dfrac{4\pi G \rho_{0} (\ell+1)}{r} & -\dfrac{4\pi G \rho_{0} \ell(\ell+1)}{r} & 0 & 0 & 0 & \dfrac{\ell-1}{r} 
 \end{pmatrix}$$ 
 
 with ($\ell = n$, same thing, different notation) and
@@ -195,37 +207,41 @@ As you can see, this matrix has size $6\times 6$, implying that it
 couples six $y$-functions. Specifically these are
 $U_{n,m} , V_{n,m} , X_{n,m} , Y_{n,m}, \Phi_{n,m} , \Psi_{n,m}$. We may
 extend the motion matrix to also include corrections from porosity, the
-corresponding a matrix will have size $8\times 8$ 
+corresponding a matrix will have size $8\times 8$. A dot ($\cdot$) marks
+an entry that is carried over unchanged from the $6\times 6$ matrix
+above (whether or not that entry happens to be zero); an explicit "$0$"
+means the entry is genuinely zero, or genuinely new and zero, in the
+poro-elastic system.
 
-$$\tiny
+$$\scriptsize
 A =
 \begin{pmatrix}
-\cdot & \cdot & \cdot & \cdot & \cdot & \cdot & \alpha \beta^{-1} & 0 \\
-\cdot & \cdot & \cdot & \cdot & \cdot & \cdot & 0 & 0 \\
-1i k \rho_\ell^2 g^2 n(n+1)\! \dfrac{r^{-2}}{\omega \eta_\ell} & \cdot & \cdot & \cdot & 
--\! (n+1) r^{-1} 1i k \rho_\ell^2 g n \dfrac{r^{-1}}{\omega \eta_\ell} &
-\cdot & 1i k \rho_\ell g n(n+1)\!\dfrac{r^{-2}}{\omega \eta_\ell} - 4\mu \alpha \beta^{-1} r^{-1} & 1i k \rho_\ell^2 g^2 n(n+1)\!\dfrac{r^{-2}}{\omega \eta_\ell} - 4 \phi \rho_\ell g r^{-1} \\
-0 & 0 & 0 & 0 & 0 & 0 & 2\alpha\mu r^{-1}\beta^{-1} & \phi \rho_\ell g r^{-1} \\
-0 & 0 & 0 & 0 & 0 & 0 & 0 & 4\pi G \rho_\ell \phi \\
--1i 4\pi G n(n+1) r^{-1} k\rho_\ell^2 g\dfrac{r^{-1}}{\omega\eta_\ell} & 0 & 0 & 0 &
-1i 4\pi n(n+1)G\rho_\ell^2 k\dfrac{r^{-2}}{\omega\eta_\ell} & 0 &
--1i 4\pi n(n+1)G\rho_\ell k\dfrac{r^{-2}}{\omega\eta_\ell} &
-4\pi G (n+1)r^{-1}\!\left(\phi\rho_\ell - 1i n k\rho_\ell^2 g\dfrac{r^{-1}}{\omega\eta_\ell}\right) \\
-\rho_\ell g r^{-1}\!\left(4 - 1i k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) &
+\cdot & \cdot & \cdot & \cdot & \cdot & \cdot & \alpha \beta^{-1} & 0 \\[0.6em]
+\cdot & \cdot & \cdot & \cdot & \cdot & \cdot & 0 & 0 \\[0.6em]
+i\, k \rho_\ell^2 g^2 n(n+1) \dfrac{r^{-2}}{\omega \eta_\ell} & \cdot & \cdot & \cdot & 
+-(n+1) r^{-1} \cdot i\, k \rho_\ell^2 g n \dfrac{r^{-1}}{\omega \eta_\ell} &
+\cdot & i\, k \rho_\ell g n(n+1) \dfrac{r^{-2}}{\omega \eta_\ell} - 4\mu \alpha \beta^{-1} r^{-1} & i\, k \rho_\ell^2 g^2 n(n+1) \dfrac{r^{-2}}{\omega \eta_\ell} - 4 \phi \rho_\ell g r^{-1} \\[0.6em]
+\cdot & \cdot & \cdot & \cdot & \cdot & 0 & 2\alpha\mu r^{-1}\beta^{-1} & \phi \rho_\ell g r^{-1} \\[0.6em]
+\cdot & 0 & 0 & 0 & \cdot & \cdot & 0 & 4\pi G \rho_\ell \phi \\[0.6em]
+-i\, 4\pi G n(n+1) r^{-1} k\rho_\ell^2 g\dfrac{r^{-1}}{\omega\eta_\ell} & \cdot & 0 & 0 &
+i\, 4\pi n(n+1)G\rho_\ell^2 k\dfrac{r^{-2}}{\omega\eta_\ell} & \cdot &
+-i\, 4\pi n(n+1)G\rho_\ell k\dfrac{r^{-2}}{\omega\eta_\ell} &
+4\pi G (n+1)r^{-1}\left(\phi\rho_\ell - i\, n k\rho_\ell^2 g\dfrac{r^{-1}}{\omega\eta_\ell}\right) \\[0.6em]
+\rho_\ell g r^{-1}\left(4 - i\, k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) &
 -\rho_\ell n(n+1) g r^{-1} &
 0 & 0 &
--\rho_\ell (n+1)r^{-1}\!\left(1 - 1i k\rho_\ell g n\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) &
+-\rho_\ell (n+1)r^{-1}\left(1 - i\, k\rho_\ell g n\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) &
 \rho_\ell &
--1i k\rho_\ell g n(n+1)\!\dfrac{r^{-2}}{\omega \phi \eta_\ell} &
--1i \omega \phi \eta_\ell / k - 4\pi G(\rho - \phi \rho_\ell)\rho_\ell + \rho_\ell g r^{-1}\!\left(4 - 1i k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) \\
-r^{-1}\!\left(1i k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell} - \dfrac{\alpha}{\phi} 4\mu\beta^{-1}\right) &
+-i\, k\rho_\ell g n(n+1) \dfrac{r^{-2}}{\omega \phi \eta_\ell} &
+-i\, \omega \phi \eta_\ell / k - 4\pi G(\rho - \phi \rho_\ell)\rho_\ell + \rho_\ell g r^{-1}\left(4 - i\, k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell}\right) \\[0.6em]
+r^{-1}\left(i\, k\rho_\ell g n(n+1)\dfrac{r^{-1}}{\omega \phi \eta_\ell} - \dfrac{\alpha}{\phi} 4\mu\beta^{-1}\right) &
 \dfrac{\alpha}{\phi} 2n(n+1)\mu \beta^{-1} r^{-1} &
 -\dfrac{\alpha}{\phi}\beta^{-1} &
 0 &
--1i k \rho_\ell n(n+1)\!\dfrac{r^{-2}}{\omega \phi \eta_\ell} &
+-i\, k \rho_\ell n(n+1) \dfrac{r^{-2}}{\omega \phi \eta_\ell} &
 0 &
-1i k n(n+1)\!\dfrac{r^{-2}}{\omega \phi \eta_\ell} - \dfrac{1}{\phi}(S + \alpha^2 \beta^{-1}) &
-1i k \rho_\ell g n(n+1)\!\dfrac{r^{-2}}{\omega \phi \eta_\ell} - 2r^{-1}
+i\, k n(n+1) \dfrac{r^{-2}}{\omega \phi \eta_\ell} - \dfrac{1}{\phi}(S + \alpha^2 \beta^{-1}) &
+i\, k \rho_\ell g n(n+1) \dfrac{r^{-2}}{\omega \phi \eta_\ell} - 2r^{-1}
 \end{pmatrix}$$
 
 where 
@@ -243,10 +259,14 @@ formulation.
 It is important to note that the ordering of the elements in
 $\pmb{A}_n(r)$ and $\pmb{y}_{n,m}(r)$ must be consistent. Different
 papers will order the $y$-functions differently (specifically $y_2$ and
-$y_3$ are often flipped). We will also perform a reorganization, where
-we order $\pmb{y}_{n,m}(r)$ as $[\text{lower}, \text{upper}]^T$.
-However, for now we can omit this as there is currently no benefit to
-doing this yet.
+$y_3$ are often flipped). For the shooting-method solvers (`solid1d`,
+`solid1d-mush`) the standard ordering above is used directly, with no
+benefit to reordering. The relaxation-method solvers do perform the
+$[\text{lower}, \text{upper}]^T$ reorganization described here: this is
+exactly the `Y6 = [1,2,4,5,3,6]` and `Y8 = [1,2,5,6,3,7,4,8]` ordering
+used in `src/solid1d_mush_relax.jl` to embed the $6\times6$ elastic
+system as a view into the $8\times8$ poro-elastic one — see
+[Solid-Phase - solid1d-mush-relax](@ref).
 
 This puts us in a bit of an awkward spot, since we have a coupled system
 of ODEs, but we can only constrain half of the $y$-functions at the
@@ -270,7 +290,10 @@ introducing three new unknowns: we are saved the system is no longer
 overestimated!
 
 Let us define $\pmb{C}$ the vector of constants of integration (weights)
-$$\pmb{C} = (a_1, a_2, a_3),$$ these constants of integration must be
+
+$$\pmb{C} = (a_1, a_2, a_3),$$
+
+these constants of integration must be
 determined using the boundary condition at the Earth's surface for the
 stress components of the spheroidal vector solution. The (true) modal
 solution vector can be written as a superposition of the elementary
@@ -303,10 +326,10 @@ $$\small
 \begin{pmatrix}
 -r^n/g & 0 & 1 \\[1.2em]
 0 & 1 & 0 \\[1.2em]
-0 & 0 & g/\rho \\[1.2em]
+0 & 0 & g \rho \\[1.2em]
 0 & 0 & 0 \\[1.2em]
-r^n & 0 & 0 \\[1.2em]
-2(n-1)r^{(n-1)} & 0 & 4 \pi G \rho
+-r^n & 0 & 0 \\[1.2em]
+-2(n-1)r^{(n-1)} & 0 & -4 \pi G \rho
 \end{pmatrix}$$ 
 
 The three columns correspond to the elementary
@@ -320,145 +343,81 @@ inclusion of inertia effects will be essential for the Earth-Moon
 system, this does not change the method so we can proceed like this for
 now.
 
-Given the above you may skip this subsection, here I will briefly
-introduce $\pmb{I}_C$ for the compressible fluid core with inertial
-effects (assuming shear is zero.) We start with the aforementioned
-elementary solutions from Equations from Takeuchi & Saito (1972)
+#### The four `core` options
 
-$$\begin{aligned}
-    y_1 (r) &= n r^{n-1} \\
-    y_2 (r) &= r^{n-1} \\
-    y_3 (r) &= 0 \\
-    y_4 (r) &= 0 \\
-    y_5 (r) &= -(n\gamma - \omega^2 ) r^n \\
-    y_6 (r) &= -[2(n-1)n\gamma - (2n+1)\omega^2] r^{n-1} 
-\end{aligned}$$ 
+The `[orbit.obliqua.solid].core` option selects which $\pmb{I}_C$ is used. There
+are two static (frequency-independent) limits and two dynamic
+(frequency-dependent, $\omega \neq 0$) generalizations of them:
 
-where $\gamma = 4\pi G\rho /3$. The second elementary
-solution is more troublesome 
+* **`"liquid"`**: the static ($\omega = 0$) fluid core matrix $\pmb{I}_C$ given
+  above (Takeuchi & Saito 1972). Two columns carry the physical degrees of
+  freedom; the third is a pure tangential-slip vector ($y_2 = 1$, else $0$),
+  representing the discontinuity in horizontal displacement that a fluid core
+  permits at the fluid-solid interface.
+* **`"solid"`**: the static, incompressible, elastic solid core of Love
+  (1911). All three columns are genuine elementary solutions, regular at
+  $r=0$; the incompressible limit ($K \to \infty$) means $K$ does not enter
+  the formula. There is no fluid-solid interface, so no column is a slip
+  vector.
+* **`"inertial-liquid"`**: the general, oscillating ($\omega \neq 0$),
+  compressible fluid ($\mu = 0$) core (Takeuchi & Saito 1972; Korenaga 2025).
+  This is the case derived below. It reduces to `"liquid"` as $\omega \to 0$:
+  a slowly oscillating fluid approaches hydrostatic equilibrium.
+* **`"inertial"`**: the general, oscillating, compressible, finite-$\mu,K$
+  solid core (Takeuchi & Saito 1972; Kervazo et al. 2021). It reduces to
+  `"inertial-liquid"` as $\mu \to 0$ (an oscillating solid without shear
+  rigidity is an oscillating fluid), and to `"solid"` as $\omega \to 0$ and
+  $K \to \infty$ (the static, incompressible limit of the general oscillating
+  solid recovers the classical elastic solution). All three columns are
+  again genuine elementary solutions with no slip vector.
 
-$$\begin{aligned}
-    y_1 (r) &= - \frac{r^{l+1}}{2n+3} \left[ \frac12 n h \psi_n(x) + f \phi_{n+1} (x) \right] \\
-    y_2 (r) &= - \frac{r^{l+1}}{2n+3} \left[ \frac12 h \psi_n(x) - \phi_{n+1} (x) \right] \\
-    y_3 (r) &= - \lambda r^n f \phi_n (x) \\
-    y_4 (r) &= 0 \\
-    y_5 (r) &= - r^{n+2} \left[ \frac{\alpha^2 f}{r^2} - \frac{3\gamma f}{2(2n+3)} \psi_n (x) \right] \\
-    y_6 (r) &= - r^{n+1} \left[ \frac{(2n+1) \alpha^2 f}{r^2} - \frac{3\gamma [ (2n+1)f - nh]}{2(2n+3)}\psi_n(x)\right]
-\end{aligned}$$ 
+Use `"solid"`/`"liquid"` for the static limit, and
+`"inertial"`/`"inertial-liquid"` when frequency-dependent (dynamic) effects
+at the core boundary matter. The full matrix entries for `"solid"` and
+`"inertial"` are implemented in `get_Ic` (`src/common.jl`) and are not
+reproduced here; the derivation below covers the `"inertial-liquid"` case in
+detail, since it is algebraically the most tractable of the two dynamic
+options.
 
-where 
+### Nullspace vs. direct use: shooting vs. relaxation
 
-$$\begin{aligned}
-    x &= kr \\
-    k^2 &= \frac{1}{\alpha^2} \left[ \omega^2 + 4\gamma - \frac{n(n+1)\gamma^2}{\omega^2} \right] \\
-    f &= -\frac{\omega^2}{\gamma} \\
-    h &= f - (n+1) \\
-    \phi_n (x) &= \frac{(2n+1)!!}{x^n} j_n (x) \\
-    \psi_n (x) &= \frac{2(2n+3)}{x^2} [1-\phi_n (x)].
-\end{aligned}$$ 
+The shooting- and relaxation-method solvers use $\pmb{I}_C$ in two
+different ways, and it is worth being explicit about the distinction
+since it is easy to conflate them.
 
-Here $\alpha$ is the compressional wave speed and
-$j_n (x)$ is the spherical Bessel function of the first kind. The issue
-is that as we decrease the forcing frequency $\omega$, $k^2$ becomes
-negative, and $x$ becomes large and imaginary. The spherical Bessel
-function of the first kind grows exponentially, and the elementary
-solution rapidly grows beyond numerical precision. One potential fix
-would be to use non-dimensional scaling, however this is currently not
-working properly. Another way to resolve this is to note that the
-elementary solution may be scaled entirely by some arbitrary constant
-($C_2$), as noted earlier in the text. As such, we may simply divide by
-$j_n(x)$ to remain around unity. Note that without this the solution
-diverges and the system cannot be resolved. With this in mind we need
-the recursion relations for the spherical Bessel function of the first
-kind, define 
+* **Shooting method** (`solid1d`, `solid1d-mush`): the three columns of
+  $\pmb{I}_C$ are used *directly* as the three starting vectors for the
+  numerical integration, $\pmb{y}^{(i)}(r_C^+) = \pmb{I}_C \pmb{e}_i$.
+  Since $\pmb{I}_C$ is constructed to already be regular at $r=0$ and
+  satisfy the core physics by definition, the CMB boundary condition is
+  automatically satisfied by construction — there is nothing further to
+  solve for at the core; only the weights $\pmb{C}$ are later fixed by
+  the surface condition.
+* **Relaxation method** (`solid1d-relax`, `solid1d-mush-relax`,
+  `solid1d-equil-relax`): here the solver never propagates elementary
+  solutions — it solves for the full state vector $\pmb{y}_n(r)$ directly
+  at every grid point simultaneously, so the CMB condition must instead
+  be expressed as a *linear constraint* $\pmb{B}_1 \pmb{y}(r_C^+) = 0$
+  that any admissible solution vector satisfies. This $\pmb{B}_1$ is
+  obtained numerically as the left nullspace of $\pmb{I}_C$ (`get_core_bc!`
+  in `src/common.jl`: `nullspace(transpose(Ic))`), i.e. the row vectors
+  orthogonal to every column of $\pmb{I}_C$. Since $\pmb{I}_C$'s three
+  columns span the admissible 3-dimensional subspace of the 6-dimensional
+  state space at the CMB, this 3-dimensional orthogonal complement is
+  exactly equivalent to using $\pmb{I}_C$ as starting vectors — it is the
+  same boundary condition, just expressed as a constraint rather than a
+  basis, because the relaxation method never explicitly constructs
+  $\pmb{C}$.
 
-$$z_{n} (x) = x j_{n+1} (x) / j_n (x)$$ 
-
-such that
-
-$$z_{n-1} (x) = \frac{x^2}{(2n+1) - z_n(x)}$$ 
-
-This recursion calculation
-should be carried out in order of decreasing $n$ starting from a
-sufficiently large wavenumber with an initial value
-$z_n(x) = x^2/(2n+3)$. We can now do some algebraic manipulation of the
-elementary solution to obtain a form with only terms $\propto 1/j_n(x)$
-or unity. Since, as mentioned, $j_n(x)$ will diverge for large imaginary
-$x$, the newly obtained solution will be well-behaved around unity. Let
-us define 
-
-$$\begin{aligned}
-    \bar{\phi}_n (x) &\equiv \frac{\phi_n (x)}{j_n (x)} = \frac{(2n+1)!!}{x^n} \\
-    \bar{\phi}_{n+1} (x) &\equiv \frac{\phi_{n+1} (x)}{j_n (x)} = \frac{(2n+3)!!}{x^{n+1}} \frac{j_{n+1}(x)}{j_n (x)} = \frac{(2n+3)!!}{x^{n+2}}z_n(x) \\
-    \bar{\psi}_n (x) &= \frac{\psi_n(x)}{j_n(x)} = \frac{2(2n+3)}{x^2} \left[ \frac{1}{j_n (x)} - \bar{\phi}_n (x)\right]
-\end{aligned}$$ 
-
-The elementary solution is then written:
-
-$$\begin{aligned}
-    \bar{y}_1 (r) &= - \frac{r^{n+1}}{2n+3} \left[ \frac{1}{2} n h \bar{\psi}_n(x) + f \frac{(2n+3)!!}{x^{n+2}} z_n(x) \right] \\
-    \bar{y}_2 (r) &= - \frac{r^{n+1}}{2n+3} \left[ \frac{1}{2} h \bar{\psi}_n(x) - \frac{(2n+3)!!}{x^{n+2}} z_n(x) \right] \\
-    \bar{y}_3 (r) &= - \lambda r^n f \bar{\phi}_n (x) \\
-    \bar{y}_4 (r) &= 0 \\
-    \bar{y}_5 (r) &= - r^{n+2} \left[ \frac{\alpha^2 f}{r^2} \frac{1}{j_n(x)} - \frac{3\gamma f}{2(2n+3)} \bar{\psi}_n (x) \right] \\
-    \bar{y}_6 (r) &= - r^{n+1} \left[ \frac{(2n+1) \alpha^2 f}{r^2} \frac{1}{j_n(x)} - \frac{3\gamma [ (2n+1)f - nh]}{2(2n+3)}\bar{\psi}_n(x)\right]
-\end{aligned}$$ 
-
-Now we note that we can simplify the system of equations
-when $k^2 \ll -1$, which implies 
-
-$$\begin{aligned}
-    \omega^2 + 4\gamma &\ll \frac{n(n+1)\gamma^2}{\omega^2} \\
-    \omega^4 + 4\gamma \omega^2 &\ll n(n+1)\gamma^2 
-\end{aligned}$$
-
-Noting that the LHS is dominated by $4\gamma \omega^2$ as $\omega \to 0$, we have
-
-$$\begin{aligned}
-    4\gamma \omega^2 &\ll n(n+1)\gamma^2 \\
-    4\omega^2 &\ll n(n+1)\gamma \qquad \wedge \qquad \gamma \neq 0
-\end{aligned}$$ 
-
-We can now find a typical forcing frequency for the
-Earth's iron core, below which we may further simplify the system. Let's
-assume for the outer liquid core
-$\rho \approx 10000 \text{ to } 12000 \text{ kg/m}^3$. Then, plugging in
-to obtain $\gamma$, we have
-
-$$\gamma \approx \frac{4}{3} \pi (6.67 \times 10^{-11}) (11000) \approx 3 \times 10^{-6} \text{ s}^{-2}$$
-
-For a degree $n=2$, that becomes
-
-$$\frac{n(n+1)}{4} \gamma = \frac{6}{4} (3 \times 10^{-6}) = 4.5 \times 10^{-6} \text{ s}^{-1}$$
-
-So that would imply that $\omega \ll 10^{-3} \text{ s}^{-2}$. In this
-regime we should use 
-
-$$\begin{aligned}
-    \bar{y}_1 (r) &= - \frac{r^{n+1}}{2n+3} \left[ \frac{n h (2n+3)}{x^2} (-\bar{\phi}_n) + f \frac{(2n+3)!!}{x^{n+2}} z_n(x) \right] \\
-    \bar{y}_2 (r) &= - \frac{r^{n+1}}{2n+3} \left[ \frac{h (2n+3)}{x^2} (-\bar{\phi}_n) - \frac{(2n+3)!!}{x^{n+2}} z_n(x) \right] \\
-    \bar{y}_3 (r) &= - \lambda r^n f \bar{\phi}_n (x) \\
-    \bar{y}_4 (r) &= 0 \\
-    \bar{y}_5 (r) &= - r^{n+2} \left[ - \frac{3\gamma f}{2(2n+3)} \bar{\psi}_n (x) \right] \\
-    \bar{y}_6 (r) &= - r^{n+1} \left[ - \frac{3\gamma [ (2n+1)f - nh]}{2(2n+3)}\bar{\psi}_n(x)\right]
-\end{aligned}$$ 
-
-which further simplify to 
-
-$$\begin{aligned}
-    \bar{y}_1 (r) &= - \frac{r^{n+1}(2n+1)!!}{x^{n+2}} \left[ f z_n(x) - nh \right] \\
-    \bar{y}_2 (r) &= - \frac{r^{n+1}(2n+1)!!}{x^{n+2}} \left[ -z_n(x) -h \right] \\
-    \bar{y}_3 (r) &= - \frac{\lambda f r^n (2n+1)!!}{x^n} \\
-    \bar{y}_4 (r) &= 0 \\
-    \bar{y}_5 (r) &= - \frac{3\gamma f r^{n+2} (2n+1)!!}{x^{n+2}} \\
-    \bar{y}_6 (r) &= - \frac{3\gamma [(2n+1)f - nh] r^{n+1} (2n+1)!!}{x^{n+2}}
-\end{aligned}$$ 
-
-Every term now shares the common factor
-$\mathcal{K} = \frac{(2n+1)!!}{x^{n+2}}$. If you wish, you can even
-divide the entire solution by $\mathcal{K}$ (since the solution is
-scalable by an arbitrary constant $C_2$), which leaves us with a
-remarkably clean system: 
+The `"inertial-liquid"` and `"inertial"` core options are implemented
+exactly this way in `get_Ic` (Takeuchi & Saito 1972; Korenaga 2025;
+Kervazo et al. 2021 — see the citations above), using the full,
+frequency-dependent Bessel-function solution rather than any low-frequency
+approximation. In the low-forcing-frequency limit relevant to most solid
+cores ($k^2 \ll -1$, i.e. roughly $\omega \ll 10^{-3}\,\text{s}^{-1}$ for
+Earth's core), that general solution admits a considerably simpler,
+purely algebraic closed form (no Bessel functions or their recursion
+relations required):
 
 $$\begin{aligned}
     \bar{y}_1 (r) &= -r^{n+1} [f z_n(x) - nh] \\
@@ -468,6 +427,12 @@ $$\begin{aligned}
     \bar{y}_5 (r) &= -3\gamma f r^{n+2} \\
     \bar{y}_6 (r) &= -3\gamma [(2n+1)f - nh] r^{n+1}
 \end{aligned}$$
+
+with $\gamma = 4\pi G\rho/3$, $f = -\omega^2/\gamma$, $h = f-(n+1)$, and
+$z_n(x)$ the Bessel ratio $x\,j_{n+1}(x)/j_n(x)$. This low-frequency
+simplification is **not currently implemented** — `get_Ic` always
+evaluates the general form — and is left as a possible future
+optimization rather than derived in full here.
 
 Finally, we should note that the porosity related $y$-functions need
 also be bounded from below and partially from above. Moreover, since a
@@ -493,8 +458,17 @@ stable then the shooting method.
 For now we will finish this section by stating the elementary boundary
 conditions to be imposed on the poro-viscoelastic solution vector. At
 the lower boundary of the porous layer the pore pressure is nonzero
-$b_{(7,4)} = 1$ and we have zero radial Darcy flux $b_{(8,4)} = 1$. At
+$b_{(7,4)} = 1$ and we have zero radial Darcy flux $b_{(8,4)} = 0$. At
 the upper part of the porous layer we impose again zero radial Darcy
-flux $b_{(8)} = 1$, without any constraint on the pore pressure.
+flux $b_{(8)} = 0$, without any constraint on the pore pressure.
 
 We will now discuss the different solver schemes.
+
+---
+
+### Function Documentation
+
+```@docs
+Obliqua.solid1d.common.get_A
+Obliqua.solid1d.common.get_Ic
+```

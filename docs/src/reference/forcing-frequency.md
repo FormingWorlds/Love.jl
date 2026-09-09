@@ -9,19 +9,26 @@ Given the fact that the tidal forcing magnitude decreases exponentially with har
 \sigma = m\Omega - k n_{\mathrm{orb}},
 ```
 
-where ``\Omega`` is spin rate and ``n_{\mathrm{orb}}`` orbital mean motion, and for integer values of order ``-2 \leq m \leq 2`` and harmonic ``\infty \leq k \leq \infty``. In our formalism tides are occuring over a large time interval, a time step ``\Delta t``. As such, we must account for tidal excitations that occur over a wide range of frequencies. We calculate the imaginary part of the ``n``th harmonic degree (``k_n``) Love number (``\Im[k_{n}(\sigma)]``) for all relevant harmonnic frequencies for which the Hansen coefficient 
+where ``\Omega`` is spin rate and ``n_{\mathrm{orb}}`` orbital mean motion, and for integer values of order ``-2 \leq m \leq 2`` and harmonic ``-\infty \leq k \leq \infty``. In our formalism tides are occuring over a large time interval, a time step ``\Delta t``. As such, we must account for tidal excitations that occur over a wide range of frequencies. We calculate the imaginary part of the ``n``th harmonic degree (``k_n``) Love number (``\Im[k_{n}(\sigma)]``) for all relevant harmonnic frequencies for which the Hansen coefficient 
 
 ```math
-X^{-(n+1), m}_k(e) =
+|X^{-(n+1), m}_k(e) |= \bigg|
 \frac{1}{2\pi} \int_0^{2\pi}
 \left(\frac{r}{a}\right)^n
-e^{im\Omega - ikn_{\mathrm{orb}}}\,dn_{\mathrm{orb}} \geq 0.01,
+e^{im\Omega - ikn_{\mathrm{orb}}}\,dn_{\mathrm{orb}} \bigg| \geq 0.001,
 ```
 
-(i.e. ~1% corrections). This implies that we are considering the following set $K$ of harmonnic frequencies $k$:
+(i.e. ~0.1% corrections). This implies that we are considering the following set $K$ of harmonnic frequencies $k$:
 
 ```math
-\{k \in K \, \forall \, k : X^{-(n+1), m}_k \geq 0.01\ | k \in Z\}
+K = \{k \in \mathbb{Z} \, \big| \, |X^{-(n+1), m}_k| \geq 0.001 \}
 ```
 
 ---
+
+### Function Documentation
+
+```@docs
+Obliqua.Hansen.get_k_range
+Obliqua.Hansen.get_hansen
+```

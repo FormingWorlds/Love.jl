@@ -27,4 +27,18 @@ The same equations hold for the (drained) bulk modulus, just replace ``\mu`` wit
     \zeta (\phi) \approx \frac{\eta (\phi)}{\phi}.
 ```
 
+A third, purely elastic option is also available (`"elastic"`, equivalent to `"none"`), which switches off dissipation entirely by returning the real, frequency-independent modulus
+
+```math
+\tilde{\mu}(\omega) = \mu.
+```
+
+This is useful as a dissipation-free limit for testing and for isolating the elastic part of the tidal response.
+
 ---
+
+### Function Documentation
+
+```@docs
+Obliqua.complex_modulus
+```

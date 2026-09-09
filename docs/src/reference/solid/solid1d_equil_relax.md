@@ -55,9 +55,19 @@ The assembled system again has the block-tridiagonal Henyey structure, but with 
 
 * **Core step** (`core_boundary`): combines $B_1$ with the upper half of $C_1$ to form $S_1$, and initializes $R_1 = -S_1^{-1}Q_1$.
 * **Propagation step** (`propagate_solid`): for each interior layer, carries forward the "stored" lower half-rows of $C_n$ and $D_{n+1}$ from the previous step to build $P_n$, $S_n$, $Q_n$, then updates
-$$X_n = P_n R_{n-1} + S_n, \qquad R_n = -X_n^{-1}Q_n$$
+
+  $$X_n = P_n R_{n-1} + S_n, \qquad R_n = -X_n^{-1}Q_n$$
+
 * **Surface step** (`surface_boundary`): applies $B_N$ (separately for the tidal and load cases) in place of the interior $C_N$ upper half, solves $X_N y = b$ for the surface potential pair, and back-fills $y_1$ and the shear-free components.
 
 The recursion logic is otherwise identical to the elastic $6\times6$ solver — only the block dimension changes, since the physics being relaxed is restricted to the potential equation rather than the full stress-displacement-potential system. Both a tidal ($y_t$) and a load ($y_l$) surface solution are produced from a single forward sweep, since the two cases share every $C_n$, $D_{n+1}$ block and differ only in the surface right-hand side $b$.
+
+---
+
+### Function Documentation
+
+```@docs
+Obliqua.run_solid1d_equil_relax
+```
 
 ---

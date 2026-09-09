@@ -41,3 +41,13 @@ $$k_n^T = \frac{1}{1 + \mu^*_n} \left( \frac{3}{2(n - 1)} \right)$$
 The load Love number represents the response to a surface mass load:
 
 $$k_n^L = -\frac{1}{1 + \mu^*_n}$$
+
+---
+
+### Function Documentation
+
+```@docs
+Obliqua.solid0d.mean_cmu
+Obliqua.solid0d.compute_solid_lovenumbers
+Obliqua.run_solid0d
+```

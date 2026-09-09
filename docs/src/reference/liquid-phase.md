@@ -87,19 +87,39 @@ so that the dissipation scale adjusts with distance from the boundary.
 
 This mimics mixing-length arguments commonly used in geophysical and astrophysical fluid dynamics, where turbulence intensity depends on the available eddy size.
 
+### Dynamic-interpolated dissipation (`dynamic_interp`)
+
+The `dynamic_interp` profile (the default `sigma_R_prf`) replaces the single depth-dependent shape function above with a composite of three physically distinct contributions, each assigned its own share of the total dissipated power so that the three shares sum exactly back to the total:
+
+$$P(z) = P_{\mathrm{sbd}}(z) + P_{\mathrm{drag}}(z) + P_{\mathrm{fric}}(z), \qquad
+\int P\,dV = E_{\mathrm{sbd}} + E_{\mathrm{drag}} + E_{\mathrm{fric}} = E_{\mathrm{total}}.$$
+
+* **Shear/bulk/Darcy component** ($E_{\mathrm{sbd}}$): the shear-, bulk-, and Darcy-heating already computed at the interface (e.g. from a neighbouring mush segment) is carried into the fluid layer with a Gaussian-shoulder radial decay from the top interface, $\propto \exp[-(z/H_{\mathrm{decay}})^{1.5}]$. The decay length starts at the configured scale height $H_R$, but is reduced (found by bisection) if needed so that this component never exceeds 25% of the frequency-independent baseline energy $E_{\infty}$ (the energy dissipated in the ``\sigma_R \to \sigma_{R,\infty}`` bulk-fluid limit).
+* **Drag component** ($E_{\mathrm{drag}} = \max(E_{\infty} - E_{\mathrm{sbd}}, 0)$): the remaining bulk Rayleigh-drag dissipation, distributed with a smooth (``\tanh``) sigmoid that switches on around the depth $z_{\mathrm{visc}}$ where the viscosity profile first drops to the pure-liquid viscosity `visc_l`, i.e. at the base of the mush-to-liquid transition.
+* **Friction component** ($E_{\mathrm{fric}} = \max(E_{\mathrm{total}} - E_{\infty}, 0)$): the excess dissipation associated with the interfacial (frequency-dependent) drag term, represented as a Gaussian pulse centred below the interface (at $z = 2H_R$, width $H_R/4$) and forced to vanish at $z=0$.
+
+This construction is designed to interpolate smoothly between the mush-transition heating handed off from the solid side and the bulk fluid response, without requiring the user to hand-pick a single idealized shape.
+
 ### Choosing a dissipation profile
 
 Since the physical location of tidal energy dissipation is uncertain in many systems, these profiles should be viewed as parameterized hypotheses. Comparing results across multiple profiles is often more informative than adopting a single choice.
 
 In practice:
 
-| Profile     | Physical assumption                           |
-| ----------- | --------------------------------------------- |
-| Uniform     | Energy dissipated evenly throughout the layer |
-| Exponential | Strong boundary-layer dissipation             |
-| Linear      | Mild bottom-enhanced dissipation              |
-| Quadratic   | Strongly localized bottom dissipation         |
-| Dynamic     | Mixing-length controlled turbulence           |
-
+| Profile          | Physical assumption                                              |
+| ---------------- | ----------------------------------------------------------------- |
+| Uniform          | Energy dissipated evenly throughout the layer                    |
+| Exponential      | Strong boundary-layer dissipation                                 |
+| Linear           | Mild bottom-enhanced dissipation                                  |
+| Quadratic        | Strongly localized bottom dissipation                              |
+| Dynamic          | Mixing-length controlled turbulence                                |
+| Dynamic-interpolated (`dynamic_interp`, default) | Energy-budget-conserving split between mush hand-off, bulk drag, and interfacial friction |
 
 ---
+
+### Function Documentation
+
+```@docs
+Obliqua.run_fluid1d
+Obliqua.fluid0d.compute_fluid_lovenumbers
+```

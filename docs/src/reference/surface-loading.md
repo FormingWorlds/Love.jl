@@ -14,15 +14,19 @@ For a given degree $n$, the boundary conditions for the state vector components 
 | :--- | :--- | :--- | :--- | :--- |
 | **$y_3(R)$** (Normal Stress) | $0$ | $-g_e \zeta_n$ | $0$ | $-P_n$ |
 | **$y_4(R)$** (Tangential Stress) | $0$ | $0$ | $\tau_n$ | $0$ |
-| **$\frac{n+1}{R} y_5(R) + y_6(R)$** | $\frac{2n+1}{R} U_n$ | $4\pi G \zeta_n$ | $0$ | $0$ |
+| **$y_6(R)$** (Potential Stress) | $\frac{2n+1}{R} U_n$ | $4\pi G \zeta_n$ | $0$ | $0$ |
+
+No $y_5$ term appears in the third row: in Obliqua's convention $y_6$ is already Takeuchi & Saito's (1972) combined "potential stress" variable, whose own radial equation has no coupling back to $y_5$, so the surface condition is a direct statement about $y_6(R)$ alone (see [Solid-Phase](@ref) for the underlying motion matrix).
 
 By expressing a surface mass load $\zeta_n$ as an equivalent external potential $U'$, where $\zeta_n = \frac{2n + 1}{4 \pi G R} U'_n$, the system simplifies to:
 
 $$\begin{aligned}
 y_{3}(R) &= - \frac{(2n + 1)g_e}{4 \pi G R} U'_n - P_n \\
 y_{4}(R) &= \tau_n \\
-\frac{n+1}{R} y_5(R) + y_6(R) &= \frac{2n+1}{R} (U_n + U'_n)
+y_6(R) &= \frac{2n+1}{R} (U_n + U'_n)
 \end{aligned}$$
+
+Note that Obliqua's actual `get_surface_bc!` (`src/common.jl`) does not literally apply this $\zeta_n \leftrightarrow U'_n$ conversion; it sets $(U,U',\tau,P)$ directly as dimensionless $0$/$1$ selector flags, which for the load case numerically works out to $y_3(R) = -(2n+1)g(R)/(4\pi R^2)$ and $y_6(R) = (2n+1)G/R^2$ — see [Solid-Phase - solid1d](@ref) for the concrete tidal/load values the code actually produces.
 
 ### Calculation of Love Numbers
 In `Obliqua`, Love numbers are non-dimensionalized by setting the forcing terms to either $1$ (present) or $0$ (absent).
@@ -55,3 +59,9 @@ In this formulation:
 While additional corrections for atmospheric pressure or specialized crustal rheologies (Andrade/Maxwell) are not yet active, the framework is designed to incorporate these by calculating the respective pressure and loading Love numbers which are already implemented in the solver.
 
 ---
+
+### Function Documentation
+
+```@docs
+Obliqua.solid1d.common.get_surface_bc!
+```
