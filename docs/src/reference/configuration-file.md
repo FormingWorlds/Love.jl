@@ -90,7 +90,7 @@ See [Forcing Frequency](@ref) for the underlying model.
 | :--- | :--- | :--- |
 | `n` | array | Radial dependence exponent(s) in $(r/a)^n$; since $r \ll a$, only $n=2$ contributes significantly. |
 | `m` | array | Tidal harmonic(s) of the true anomaly (e.g. $m=2$ semidiurnal, $m=1$ diurnal). |
-| `spectrum` | str | Frequency sampling strategy: `"full"` samples the whole k2 spectrum, `"adaptive"` samples only the region of interest. |
+| `spectrum` | str | Frequency sampling strategy: `"full"` samples the whole k2 spectrum, `"adaptive"` samples only the region of interest, `"legacy"` reproduces the original LovePy module (hardcoded low-eccentricity, spin-synchronous $(n,m,k) = (2,0,1),(2,2,1),(2,2,3)$ triplet evaluated at a single forcing frequency $\omega$). `"legacy"` overrides `n`, `m`, `s_min`, and `s_max`. |
 | `N_sigma` | int | Number of probe frequencies to evaluate k2 at (used when `spectrum = "full"`). |
 | `p_min` | float | Minimum period for orbital and axial frequencies [$\log_{10}$ kyr]. |
 | `p_max` | float | Maximum period for orbital and axial frequencies [$\log_{10}$ kyr]. |

@@ -335,6 +335,11 @@ module Obliqua
             N_σ      = cfg["orbit"]["obliqua"]["N_sigma"]
             p_min    = cfg["orbit"]["obliqua"]["p_min"]
             p_max    = cfg["orbit"]["obliqua"]["p_max"]
+        elseif spectrum == "legacy"
+            # No further config keys required: (n, m, k) modes and forcing
+            # frequency are hardcoded to reproduce the original LovePy module.
+        else
+            throw("Invalid spectrum value: $spectrum. Must be 'adaptive', 'full', or 'legacy'.")
         end
 
         material_μ   = cfg["orbit"]["obliqua"]["material_mu"]
@@ -501,6 +506,38 @@ module Obliqua
                 push!(σ_range, σ_range_i[i])
             end
             @info "Using (n, m, k) = ($(nm[1][1]), $(nm[1][2]), 1) for full spectrum."
+
+        elseif spectrum == "legacy"
+            # Reproduce the original LovePy module: hardcode the three dominant
+            # low-eccentricity (n, m, k) modes and force an identical forcing
+            # frequency across all three, so a single k2 Love number spectrum
+            # is evaluated (at ω) instead of the full/adaptive mode expansion.
+            # This assumes spin-orbit synchronisation and e << 1, matching the
+            # simplifications baked into LovePy; it is not a general-purpose
+            # replacement for "adaptive".
+            nmk = [(2, 0, 1), (2, 2, 1), (2, 2, 3)]
+
+            # LovePy hardcodes forcing frequency = orbital mean motion (omega),
+            # which is only physically exact for spin-orbit synchronous rotation
+            # (axial == omega): warn loudly if that assumption is violated,
+            # since this mode silently ignores `axial` otherwise.
+            if !isapprox(axial, omega; rtol=1e-3)
+                @warn "Legacy spectrum assumes spin-orbit synchronisation (axial == omega), but axial=$axial rad/s and omega=$omega rad/s differ by more than 0.1%. Forcing frequency is still hardcoded to omega; results will not match a self-consistent tidal calculation for this rotation state."
+            end
+
+            _, X_02 = Hansen.get_hansen(ecc, 2, 0, 1, 1)
+            _, X_22 = Hansen.get_hansen(ecc, 2, 2, 1, 3)
+            X_hansen = [X_02[1], X_22[1], X_22[3]]
+
+            # Note we consistently drop the sign of the forcing frequency, as
+            # LovePy does, since only the imaginary part of k2 is used.
+            σ_range = fill(Float64(omega), 3)
+
+            N_σ = length(σ_range)
+
+            @info "Using legacy (LovePy-compatible) spectrum: (n, m, k) = (2, 0, 1), (2, 2, 1), (2, 2, 3), all evaluated at ω = $omega."
+        else
+            throw("Invalid spectrum value: $spectrum. Must be 'adaptive', 'full', or 'legacy'.")
         end
 
         # get frequency dependent complex shear modulus per mode
@@ -1022,8 +1059,10 @@ module Obliqua
             # specify mode
             n_i, m_i, s_i = nmk[iss]
 
-            # calculate physical forcing frequency
-            σ = m_i*axial - s_i*omega
+            # forcing frequency for this mode (matches `σ_range[iss]` exactly for
+            # "adaptive", since it was built there with the same m_i*axial - s_i*omega
+            # formula; for "legacy" this is instead the hardcoded ω shared by all modes)
+            σ = σ_range[iss]
 
             # if forcing frequency is zero, then skip to next frequency (no heating)
             iszero(σ) && continue
